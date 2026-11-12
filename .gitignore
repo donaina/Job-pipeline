@@ -7,6 +7,9 @@ node_modules/
 out/
 .vercel/
 
+# user uploads
+uploads/
+
 # secrets: never commit
 .env
 .env.*

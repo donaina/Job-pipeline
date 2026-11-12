@@ -18,6 +18,17 @@ function safeEqual(a, b) {
 }
 
 export function middleware(request) {
+  // Allow Better Auth endpoints and public assets freely
+  if (
+    request.nextUrl.pathname.startsWith("/api/auth") ||
+    request.nextUrl.pathname.startsWith("/_next") ||
+    request.nextUrl.pathname.startsWith("/static") ||
+    request.nextUrl.pathname === "/login" ||
+    request.nextUrl.pathname === "/register"
+  ) {
+    return NextResponse.next();
+  }
+
   const user = process.env.DASHBOARD_USER;
   const pass = process.env.DASHBOARD_PASSWORD;
   if (!user || !pass) {

@@ -8,14 +8,30 @@
     "start": "next start",
     "pipeline": "node --env-file=.env.local scripts/run-pipeline.mjs",
     "check-companies": "node scripts/check-companies.mjs",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
     "test": "node --test \"tests/*.test.mjs\""
   },
   "dependencies": {
+    "@google/genai": "^3.2.0",
     "@googleapis/sheets": "18.1.1",
+    "better-auth": "^1.7.22",
+    "drizzle-orm": "^0.45.4",
     "next": "14.2.15",
     "nodemailer": "6.9.15",
+    "pdf-parse": "^1.1.1",
+    "postgres": "^4.1.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "rss-parser": "3.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/pdf-parse": "^1.1.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "drizzle-kit": "^0.31.11",
+    "typescript": "^5.6.3"
   }
 }
