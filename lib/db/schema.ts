@@ -11,20 +11,21 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 
-// Custom pgvector type for embeddings
+// Custom vector type for embeddings (stored as jsonb for universal Postgres compatibility)
 export const vector768 = customType<{ data: number[] }>({
   dataType() {
-    return "vector(768)";
+    return "jsonb";
   },
-  toDriver(value: number[]): string {
-    return `[${value.join(",")}]`;
+  toDriver(value: number[]): any {
+    return JSON.stringify(value);
   },
   fromDriver(value: unknown): number[] {
     if (typeof value === "string") {
-      // Remove brackets and split
-      const trimmed = value.trim().replace(/^\[|\]$/g, "");
-      if (!trimmed) return [];
-      return trimmed.split(",").map(Number);
+      try {
+        return JSON.parse(value);
+      } catch {
+        return [];
+      }
     }
     return (value as number[]) || [];
   },

@@ -1,5 +1,3 @@
-CREATE EXTENSION IF NOT EXISTS vector;
---> statement-breakpoint
 CREATE TABLE "account" (
 	"id" text PRIMARY KEY NOT NULL,
 	"account_id" text NOT NULL,
@@ -46,7 +44,7 @@ CREATE TABLE "jobs" (
 	"apply_email" text,
 	"tags" jsonb DEFAULT '[]'::jsonb,
 	"requirements" jsonb,
-	"embedding" vector(768),
+	"embedding" jsonb,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "jobs_external_id_unique" UNIQUE("external_id")
 );
@@ -61,7 +59,7 @@ CREATE TABLE "resumes" (
 	"file_name" text,
 	"raw_text" text,
 	"parsed_data" jsonb,
-	"embedding" vector(768),
+	"embedding" jsonb,
 	"is_default" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
