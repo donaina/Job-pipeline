@@ -1,83 +1,47 @@
-// middleware.js
-// Password protection for the whole app (pages and API routes) using HTTP
-// Basic Auth. Your browser shows a username/password box once and remembers it.
-//
-// Set DASHBOARD_USER and DASHBOARD_PASSWORD in .env.local to switch it on.
-// If either is missing the app stays open, which is fine on your own PC.
-//
-// The daily cron call to /api/run is let through only when it carries the
-// correct x-cron-secret header; the route checks that secret again itself.
-
 import { NextResponse } from "next/server";
 
-function safeEqual(a, b) {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-
 export function middleware(request) {
-  // Allow Better Auth endpoints and public assets freely
+  const { pathname } = request.nextUrl;
+
+  // 1. Allow public assets, Next.js internal files, and auth endpoints
   if (
-    request.nextUrl.pathname.startsWith("/api/auth") ||
-    request.nextUrl.pathname.startsWith("/_next") ||
-    request.nextUrl.pathname.startsWith("/static") ||
-    request.nextUrl.pathname === "/login" ||
-    request.nextUrl.pathname === "/register"
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/static") ||
+    pathname === "/favicon.ico" ||
+    pathname === "/login" ||
+    pathname === "/register"
   ) {
     return NextResponse.next();
   }
 
-  const user = process.env.DASHBOARD_USER;
-  const pass = process.env.DASHBOARD_PASSWORD;
-  if (!user || !pass) {
-    // Never run an open dashboard on the internet: in production, a missing
-    // login means the app refuses to serve anything.
-    if (process.env.NODE_ENV === "production") {
-      return new NextResponse("Dashboard login is not configured", {
-        status: 503,
-      });
-    }
-    return NextResponse.next();
-  }
-
+  // 2. Allow cron pipeline if cron secret matches
   const cronSecret = process.env.CRON_SECRET;
   if (
-    request.nextUrl.pathname === "/api/run" &&
+    pathname === "/api/run" &&
     cronSecret &&
     request.headers.get("x-cron-secret") === cronSecret
   ) {
     return NextResponse.next();
   }
 
-  const header = request.headers.get("authorization") || "";
-  const [scheme, encoded] = header.split(" ");
-  if (scheme === "Basic" && encoded) {
-    try {
-      const decoded = atob(encoded);
-      const i = decoded.indexOf(":");
-      if (
-        i > -1 &&
-        safeEqual(decoded.slice(0, i), user) &&
-        safeEqual(decoded.slice(i + 1), pass)
-      ) {
-        return NextResponse.next();
-      }
-    } catch (err) {
-      // malformed header, fall through to the 401 below
-    }
+  // 3. Check for Better Auth session token cookie
+  const sessionCookie =
+    request.cookies.get("better-auth.session_token") ||
+    request.cookies.get("__Secure-better-auth.session_token");
+
+  // If no session cookie and accessing user pages, redirect to /login
+  if (!sessionCookie && !pathname.startsWith("/api/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    return NextResponse.redirect(url);
   }
 
-  return new NextResponse("Login required", {
-    status: 401,
-    headers: {
-      "WWW-Authenticate": 'Basic realm="Job Pipeline", charset="UTF-8"',
-    },
-  });
+  return NextResponse.next();
 }
 
-// Everything except Next's static files.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico).*)",
+  ],
 };
