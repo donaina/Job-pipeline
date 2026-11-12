@@ -5,6 +5,10 @@ import { resumes } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { parseResumeText, ParsedResume } from "@/lib/ai/parseResume";
 import { generateEmbedding } from "@/lib/ai/embeddings";
+import { matchJobsForUser } from "@/lib/matcher/matchUserJobs";
+import { ingestGlobalJobs } from "@/lib/jobs/ingest";
+import { jobs } from "@/lib/db/schema";
+import { sql } from "drizzle-orm";
 import fs from "fs/promises";
 import path from "path";
 // @ts-ignore
@@ -169,9 +173,29 @@ export async function POST(req: NextRequest) {
       savedResume = inserted;
     }
 
+    // Check if jobs exist; if jobs table is empty, run initial ingest
+    try {
+      const [jobsCount] = await db.select({ count: sql<number>`count(*)` }).from(jobs);
+      if (Number(jobsCount?.count || 0) === 0) {
+        console.log("[resumes] Jobs table is empty. Running initial job ingestion...");
+        await ingestGlobalJobs();
+      }
+    } catch (ingestErr) {
+      console.warn("[resumes] Initial ingest check warning:", ingestErr);
+    }
+
+    // Automatically trigger immediate matching for this user
+    let matchResult = { matched: 0 };
+    try {
+      matchResult = await matchJobsForUser(session.user.id);
+    } catch (matchErr) {
+      console.warn("[resumes] Immediate matching warning:", matchErr);
+    }
+
     return NextResponse.json({
       success: true,
       resume: savedResume,
+      matched: matchResult.matched,
     });
   } catch (error: any) {
     console.error("Failed to save resume:", error);

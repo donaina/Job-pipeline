@@ -1,4 +1,5 @@
 import { fetchAllJobs } from "../fetchers/index.js";
+import { filterJobs } from "../filters.js";
 import { db } from "../db";
 import { jobs } from "../db/schema";
 import { generateEmbedding } from "../ai/embeddings";
@@ -10,9 +11,13 @@ export async function ingestGlobalJobs() {
   const { jobs: rawJobs, total } = await fetchAllJobs();
   console.log(`[ingest] Fetched ${rawJobs.length} jobs (out of ${total} total seen).`);
 
+  // Filter for Remote & Nigeria / Worldwide / Eligible Country jobs
+  const eligibleJobs = filterJobs(rawJobs);
+  console.log(`[ingest] ${eligibleJobs.length} jobs passed the remote and location eligibility filter.`);
+
   let added = 0;
 
-  for (const job of rawJobs) {
+  for (const job of eligibleJobs) {
     try {
       const link = job.link || job.url || "";
       if (!link) continue;
@@ -43,11 +48,14 @@ export async function ingestGlobalJobs() {
         title: job.title || "Software Engineer",
         description: job.description || "",
         location: job.location || "Remote",
-        remoteType: job.remote ? "remote" : "unknown",
+        remoteType: "remote",
         salaryEst: job.salary || null,
         applyUrl: link,
         applyEmail: job.applyEmail || null,
-        tags: job.tags || [],
+        tags: [
+          ...(job.tags || []),
+          job.locationRestricted ? "Region-Specific Remote" : "Worldwide Remote",
+        ],
         embedding: embedding.length ? embedding : null,
       });
 
@@ -57,7 +65,6 @@ export async function ingestGlobalJobs() {
     }
   }
 
-  console.log(`[ingest] Successfully saved ${added} new unique jobs.`);
-  return { added, totalFetched: rawJobs.length };
+  console.log(`[ingest] Successfully saved ${added} new unique remote jobs.`);
+  return { added, totalFetched: rawJobs.length, eligible: eligibleJobs.length };
 }
-
