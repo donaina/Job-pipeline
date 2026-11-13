@@ -213,6 +213,21 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="headActions">
+          {sessionUser?.role === "admin" && (
+            <Link
+              href="/admin"
+              className="actionBtn"
+              style={{
+                textDecoration: "none",
+                background: "#fef3c7",
+                borderColor: "#fde68a",
+                color: "#92400e",
+                fontWeight: 600,
+              }}
+            >
+              ⚡ Admin Portal
+            </Link>
+          )}
           <Link href="/resumes" className="actionBtn" style={{ textDecoration: "none" }}>
             Manage 3 Resumes
           </Link>

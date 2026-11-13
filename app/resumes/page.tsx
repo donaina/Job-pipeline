@@ -171,6 +171,12 @@ export default function ResumesPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20, marginBottom: 40 }}>
         {slots.map((slotNum) => {
           const resume = resumes.find((r) => r.slotNumber === slotNum);
+          const isLocked =
+            slotNum > 1 &&
+            sessionUser?.subscriptionTier !== "pro" &&
+            sessionUser?.role !== "admin" &&
+            !resume;
+
           return (
             <div
               key={slotNum}
@@ -183,6 +189,7 @@ export default function ResumesPage() {
                 flexDirection: "column",
                 justifyContent: "space-between",
                 minHeight: 280,
+                opacity: isLocked ? 0.9 : 1,
               }}
             >
               <div>
@@ -190,18 +197,26 @@ export default function ResumesPage() {
                   <span style={{ fontSize: 12, fontWeight: 700, color: "var(--navy)", textTransform: "uppercase" }}>
                     Slot {slotNum}
                   </span>
-                  {resume && (
+                  {isLocked ? (
+                    <span style={{ fontSize: 11, background: "#fef3c7", color: "#92400e", padding: "2px 8px", borderRadius: 12, fontWeight: 600 }}>
+                      ⭐ Pro Feature
+                    </span>
+                  ) : resume ? (
                     <span style={{ fontSize: 11, background: "#e0e7ff", color: "#3730a3", padding: "2px 8px", borderRadius: 12 }}>
                       {resume.inputType === "FILE_UPLOAD" ? "PDF Upload" : "Manual Profile"}
                     </span>
-                  )}
+                  ) : null}
                 </div>
 
                 <h3 style={{ margin: "0 0 8px", fontSize: 18, color: "var(--navy)" }}>
-                  {resume ? resume.label : `Resume Slot ${slotNum} (Empty)`}
+                  {resume ? resume.label : isLocked ? `Resume Slot ${slotNum} (Pro)` : `Resume Slot ${slotNum} (Empty)`}
                 </h3>
 
-                {resume ? (
+                {isLocked ? (
+                  <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 14 }}>
+                    Unlock multi-track CV targeting with <strong>Pro</strong>. Match specialized Frontend, Mobile, and Product engineering roles simultaneously.
+                  </p>
+                ) : resume ? (
                   <div>
                     <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 12px" }}>
                       {resume.parsedData?.summary
@@ -234,13 +249,24 @@ export default function ResumesPage() {
 
               <button
                 onClick={() => {
+                  if (isLocked) {
+                    alert(
+                      "Resume Slots 2 & 3 are available on the Pro plan to target different tech stacks simultaneously. Contact admin or upgrade to unlock."
+                    );
+                    return;
+                  }
                   setActiveSlot(slotNum);
                   setLabel(resume ? resume.label : `Resume Slot ${slotNum}`);
                 }}
                 className="actionBtn"
-                style={{ width: "100%", textAlign: "center" }}
+                style={{
+                  width: "100%",
+                  textAlign: "center",
+                  background: isLocked ? "#f8fafc" : undefined,
+                  color: isLocked ? "#92400e" : undefined,
+                }}
               >
-                {resume ? "Replace / Edit Slot" : "Setup Slot " + slotNum}
+                {isLocked ? "🔒 Unlock with Pro" : resume ? "Replace / Edit Slot" : "Setup Slot " + slotNum}
               </button>
             </div>
           );
