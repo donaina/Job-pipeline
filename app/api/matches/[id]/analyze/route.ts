@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { jobMatches, jobs, resumes } from "@/lib/db/schema";
+import { jobMatches, jobs, resumes, user } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { analyzeResumeJobGap } from "@/lib/ai/gapAnalysis";
 import { ParsedResume } from "@/lib/ai/parseResume";
@@ -17,6 +17,29 @@ export async function POST(
 
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Check user's subscription tier & limit
+    const [currentUser] = await db
+      .select({
+        role: user.role,
+        subscriptionTier: user.subscriptionTier,
+        aiAnalysisCount: user.aiAnalysisCount,
+      })
+      .from(user)
+      .where(eq(user.id, session.user.id))
+      .limit(1);
+
+    const isPro =
+      currentUser?.subscriptionTier === "pro" || currentUser?.role === "admin";
+    if (!isPro && (currentUser?.aiAnalysisCount || 0) >= 5) {
+      return NextResponse.json(
+        {
+          error:
+            "You have reached your free monthly limit of 5 AI Resume Gap Analyses. Upgrade to Pro for unlimited evaluations.",
+        },
+        { status: 403 }
+      );
     }
 
     const matchId = params.id;
@@ -97,6 +120,14 @@ export async function POST(
       })
       .where(eq(jobMatches.id, matchId))
       .returning();
+
+    // Increment user's AI analysis counter
+    await db
+      .update(user)
+      .set({
+        aiAnalysisCount: (currentUser?.aiAnalysisCount || 0) + 1,
+      })
+      .where(eq(user.id, session.user.id));
 
     return NextResponse.json({
       success: true,

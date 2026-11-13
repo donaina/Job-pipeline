@@ -16,6 +16,26 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  user: {
+    additionalFields: {
+      role: {
+        type: "string",
+        defaultValue: "user",
+      },
+      subscriptionTier: {
+        type: "string",
+        defaultValue: "free",
+      },
+      subscriptionStatus: {
+        type: "string",
+        defaultValue: "active",
+      },
+      aiAnalysisCount: {
+        type: "number",
+        defaultValue: 0,
+      },
+    },
+  },
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days
     updateAge: 60 * 60 * 24, // 1 day

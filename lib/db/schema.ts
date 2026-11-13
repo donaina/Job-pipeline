@@ -39,6 +39,11 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
+  role: text("role").default("user").notNull(), // "user" | "admin"
+  subscriptionTier: text("subscription_tier").default("free").notNull(), // "free" | "pro"
+  subscriptionStatus: text("subscription_status").default("active").notNull(), // "active" | "past_due" | "canceled"
+  subscriptionExpiresAt: timestamp("subscription_expires_at"),
+  aiAnalysisCount: integer("ai_analysis_count").default(0).notNull(),
   preferences: jsonb("preferences").$type<{
     targetRoles?: string[];
     preferredCountries?: string[];
