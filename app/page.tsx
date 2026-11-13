@@ -70,18 +70,22 @@ export default function Dashboard() {
   const [syncing, setSyncing] = useState(false);
 
   const sessionUser = (session as any)?.user;
+  const userId = sessionUser?.id;
 
   useEffect(() => {
-    if (!isPending && !sessionUser) {
+    if (!isPending && !userId) {
       router.push("/login");
-    } else if (sessionUser) {
-      loadMatches();
+    } else if (userId) {
+      // Only show full loading placeholder on initial empty load to preserve scroll position
+      loadMatches(matches.length === 0);
     }
-  }, [session, isPending, activeTab]);
+  }, [userId, isPending, activeTab]);
 
-  async function loadMatches() {
+  async function loadMatches(showLoading = false) {
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      }
       const url = activeTab === "ALL" ? "/api/matches" : `/api/matches?status=${activeTab}`;
       const res = await fetch(url);
       const data = await res.json();
