@@ -37,10 +37,6 @@ export async function ingestGlobalJobs() {
 
       if (existing.length > 0) continue;
 
-      // Generate embedding for job title + description preview
-      const embeddingText = `${job.title} at ${job.company}\n${(job.description || "").slice(0, 3000)}`;
-      const embedding = await generateEmbedding(embeddingText);
-
       await db.insert(jobs).values({
         externalId,
         source: job.source || "web",
@@ -56,7 +52,7 @@ export async function ingestGlobalJobs() {
           ...(job.tags || []),
           job.locationRestricted ? "Region-Specific Remote" : "Worldwide Remote",
         ],
-        embedding: embedding.length ? embedding : null,
+        embedding: null,
       });
 
       added++;
