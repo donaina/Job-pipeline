@@ -60,6 +60,15 @@ export default function AdminPage() {
     }
   }, [session, isPending]);
 
+  async function parseSafeJson(res: Response) {
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(`Server returned HTTP ${res.status} (non-JSON response)`);
+    }
+  }
+
   async function loadData() {
     try {
       setLoading(true);
@@ -73,11 +82,22 @@ export default function AdminPage() {
         return;
       }
 
-      const metricsData = await metricsRes.json();
-      const usersData = await usersRes.json();
+      const metricsData = await parseSafeJson(metricsRes);
+      const usersData = await parseSafeJson(usersRes);
 
       if (metricsData.metrics) setMetrics(metricsData.metrics);
       if (usersData.users) setUsers(usersData.users);
+
+      // Check if a background scrape is already in progress
+      try {
+        const scrapeRes = await fetch("/api/admin/scrape");
+        const scrapeData = await parseSafeJson(scrapeRes);
+        if (scrapeData.status === "running") {
+          setScraping(true);
+          setScrapeFeedback("Scraper is currently running in background...");
+          pollScrapeStatus();
+        }
+      } catch {}
     } catch (err) {
       console.error(err);
     } finally {
@@ -85,23 +105,51 @@ export default function AdminPage() {
     }
   }
 
+  function pollScrapeStatus() {
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/admin/scrape");
+        const data = await parseSafeJson(res);
+
+        if (data.status === "completed") {
+          clearInterval(pollInterval);
+          setScraping(false);
+          setScrapeFeedback(
+            `Completed! ${data.added ?? 0} new remote jobs saved, ${data.totalMatches ?? 0} matches generated across ${data.usersProcessed ?? 0} users.`
+          );
+          await loadData();
+        } else if (data.status === "failed") {
+          clearInterval(pollInterval);
+          setScraping(false);
+          setScrapeFeedback("Error: " + (data.error || "Scraping failed."));
+        }
+      } catch (e) {
+        console.error("Polling error:", e);
+      }
+    }, 3000);
+
+    // Stop polling after 3 minutes
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      setScraping(false);
+    }, 180000);
+  }
+
   async function triggerScrape() {
     setScraping(true);
-    setScrapeFeedback("Fetching jobs from 9 sources & matching across all users...");
+    setScrapeFeedback("Initiating scrape across 9 sources in background...");
     try {
       const res = await fetch("/api/admin/scrape", { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
-        setScrapeFeedback(
-          `Success: ${data.added} new remote jobs saved, ${data.totalMatches} matches generated across ${data.usersProcessed} users.`
-        );
-        await loadData();
+      const data = await parseSafeJson(res);
+      if (res.ok && data.success) {
+        setScrapeFeedback("Scraper running in background... fetching feeds and calculating matches.");
+        pollScrapeStatus();
       } else {
-        setScrapeFeedback("Error: " + (data.error || "Scraping failed."));
+        setScrapeFeedback("Error: " + (data.error || "Failed to start scraper."));
+        setScraping(false);
       }
     } catch (err: any) {
       setScrapeFeedback("Failed to trigger scrape: " + err.message);
-    } finally {
       setScraping(false);
     }
   }
