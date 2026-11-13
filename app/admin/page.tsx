@@ -51,14 +51,15 @@ export default function AdminPage() {
   const [updatingUser, setUpdatingUser] = useState<string | null>(null);
 
   const sessionUser = (session as any)?.user;
+  const userId = sessionUser?.id;
 
   useEffect(() => {
-    if (!isPending && !sessionUser) {
+    if (!isPending && !userId) {
       router.push("/login");
-    } else if (sessionUser) {
-      loadData();
+    } else if (userId) {
+      loadData(users.length === 0);
     }
-  }, [session, isPending]);
+  }, [userId, isPending]);
 
   async function parseSafeJson(res: Response) {
     const text = await res.text();
@@ -69,9 +70,9 @@ export default function AdminPage() {
     }
   }
 
-  async function loadData() {
+  async function loadData(showLoading = false) {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const [metricsRes, usersRes] = await Promise.all([
         fetch("/api/admin/metrics"),
         fetch("/api/admin/users"),

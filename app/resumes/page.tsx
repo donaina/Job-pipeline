@@ -41,18 +41,19 @@ export default function ResumesPage() {
   const [statusMsg, setStatusMsg] = useState("");
 
   const sessionUser = (session as any)?.user;
+  const userId = sessionUser?.id;
 
   useEffect(() => {
-    if (!isPending && !sessionUser) {
+    if (!isPending && !userId) {
       router.push("/login");
-    } else if (sessionUser) {
-      loadResumes();
+    } else if (userId) {
+      loadResumes(resumes.length === 0);
     }
-  }, [session, isPending]);
+  }, [userId, isPending]);
 
-  async function loadResumes() {
+  async function loadResumes(showLoading = false) {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const res = await fetch("/api/resumes");
       const data = await res.json();
       if (data.resumes) {
