@@ -11,6 +11,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [signUpSuccess, setSignUpSuccess] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendMsg, setResendMsg] = useState("");
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -28,8 +31,7 @@ export default function LoginPage() {
         if (res.error) {
           setError(res.error.message || "Sign up failed.");
         } else {
-          router.push("/");
-          router.refresh();
+          setSignUpSuccess(true);
         }
       } else {
         const res = await signIn.email({
@@ -48,6 +50,102 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleResendVerification() {
+    setResending(true);
+    setResendMsg("");
+    try {
+      const res = await fetch("/api/auth/send-verification-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, callbackURL: "/" }),
+      });
+      if (res.ok) {
+        setResendMsg("A fresh verification email has been sent! Check your inbox.");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setResendMsg(data.message || "Failed to resend. Please try again.");
+      }
+    } catch (err: any) {
+      setResendMsg("Error: " + err.message);
+    } finally {
+      setResending(false);
+    }
+  }
+
+  if (signUpSuccess) {
+    return (
+      <div style={{ maxWidth: 460, margin: "80px auto", padding: "0 20px" }}>
+        <div
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: 12,
+            padding: 36,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: "50%",
+              background: "#dbeafe",
+              color: "#1d4ed8",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 26,
+              margin: "0 auto 16px",
+            }}
+          >
+            ✉️
+          </div>
+          <h2 style={{ color: "var(--navy)", margin: "0 0 10px", fontSize: 22 }}>
+            Check your inbox!
+          </h2>
+          <p style={{ color: "var(--text-muted)", fontSize: 14.5, lineHeight: 1.6, margin: "0 0 20px" }}>
+            We've sent a verification link to <strong style={{ color: "var(--navy)" }}>{email}</strong>.
+            Please click the link in the email to confirm your account and unlock all AI features.
+          </p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 24 }}>
+            <button
+              onClick={() => {
+                router.push("/");
+                router.refresh();
+              }}
+              className="actionBtn primary"
+              style={{ width: "100%", padding: "12px", fontSize: 14 }}
+            >
+              Continue to Dashboard &rarr;
+            </button>
+            <button
+              onClick={handleResendVerification}
+              disabled={resending}
+              className="actionBtn"
+              style={{ width: "100%", padding: "10px", fontSize: 13 }}
+            >
+              {resending ? "Resending..." : "Resend Verification Email"}
+            </button>
+          </div>
+
+          {resendMsg && (
+            <div
+              style={{
+                marginTop: 14,
+                fontSize: 13,
+                color: resendMsg.startsWith("Error") ? "#b91c1c" : "#166534",
+              }}
+            >
+              {resendMsg}
+            </div>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (

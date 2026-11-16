@@ -19,16 +19,27 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check user's subscription tier & limit (shares counter with gap analysis)
+    // Check user's subscription tier, email verification & limit (shares counter with gap analysis)
     const [currentUser] = await db
       .select({
         role: user.role,
         subscriptionTier: user.subscriptionTier,
         aiAnalysisCount: user.aiAnalysisCount,
+        emailVerified: user.emailVerified,
       })
       .from(user)
       .where(eq(user.id, session.user.id))
       .limit(1);
+
+    if (currentUser && !currentUser.emailVerified) {
+      return NextResponse.json(
+        {
+          error:
+            "Please verify your email address to generate AI Interview Prep. Check your inbox for the verification link.",
+        },
+        { status: 403 }
+      );
+    }
 
     const isPro =
       currentUser?.subscriptionTier === "pro" || currentUser?.role === "admin";

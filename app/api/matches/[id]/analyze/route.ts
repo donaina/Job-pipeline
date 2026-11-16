@@ -19,16 +19,27 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check user's subscription tier & limit
+    // Check user's subscription tier, email verification & limit
     const [currentUser] = await db
       .select({
         role: user.role,
         subscriptionTier: user.subscriptionTier,
         aiAnalysisCount: user.aiAnalysisCount,
+        emailVerified: user.emailVerified,
       })
       .from(user)
       .where(eq(user.id, session.user.id))
       .limit(1);
+
+    if (currentUser && !currentUser.emailVerified) {
+      return NextResponse.json(
+        {
+          error:
+            "Please verify your email address to unlock AI Resume Gap Analysis. Check your inbox for the verification link.",
+        },
+        { status: 403 }
+      );
+    }
 
     const isPro =
       currentUser?.subscriptionTier === "pro" || currentUser?.role === "admin";
