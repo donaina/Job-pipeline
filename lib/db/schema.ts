@@ -199,6 +199,30 @@ export const jobMatches = pgTable(
       }>;
       keywordsToIntegrate?: string[];
     }>(),
+    interviewPrep: jsonb("interview_prep").$type<{
+      behavioralQuestions?: Array<{
+        question: string;
+        whyAsked: string;
+        answerFramework: string;
+      }>;
+      technicalQuestions?: Array<{
+        question: string;
+        topic: string;
+        difficulty: string;
+        hints: string;
+      }>;
+      systemDesignTopics?: Array<{
+        scenario: string;
+        keyConsiderations: string;
+        relevanceToRole: string;
+      }>;
+      preparationTips?: string[];
+      practiceAreas?: Array<{
+        area: string;
+        priority: string;
+        resources: string;
+      }>;
+    }>(),
     appliedAt: timestamp("applied_at"),
     followUpDate: timestamp("follow_up_date"),
     notes: text("notes"),

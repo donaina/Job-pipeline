@@ -5,6 +5,31 @@ import { useSession, authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+interface InterviewPrepData {
+  behavioralQuestions?: Array<{
+    question: string;
+    whyAsked: string;
+    answerFramework: string;
+  }>;
+  technicalQuestions?: Array<{
+    question: string;
+    topic: string;
+    difficulty: string;
+    hints: string;
+  }>;
+  systemDesignTopics?: Array<{
+    scenario: string;
+    keyConsiderations: string;
+    relevanceToRole: string;
+  }>;
+  preparationTips?: string[];
+  practiceAreas?: Array<{
+    area: string;
+    priority: string;
+    resources: string;
+  }>;
+}
+
 interface JobMatch {
   match: {
     id: string;
@@ -27,6 +52,7 @@ interface JobMatch {
       }>;
       keywordsToIntegrate?: string[];
     } | null;
+    interviewPrep?: InterviewPrepData | null;
     notes?: string;
   };
   job: {
@@ -66,6 +92,8 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("ALL");
   const [selectedMatch, setSelectedMatch] = useState<JobMatch | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [preparingInterview, setPreparingInterview] = useState(false);
+  const [modalTab, setModalTab] = useState<"gap" | "interview">("gap");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
 
@@ -170,6 +198,50 @@ export default function Dashboard() {
       alert("Failed to run gap analysis: " + err.message);
     } finally {
       setAnalyzing(false);
+    }
+  }
+
+  async function runInterviewPrep(matchId: string) {
+    try {
+      setPreparingInterview(true);
+      const res = await fetch(`/api/matches/${matchId}/interview-prep`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (data.interviewPrep) {
+        setMatches((prev) =>
+          prev.map((m) =>
+            m.match.id === matchId
+              ? {
+                  ...m,
+                  match: {
+                    ...m.match,
+                    interviewPrep: data.interviewPrep,
+                  },
+                }
+              : m
+          )
+        );
+        if (selectedMatch?.match.id === matchId) {
+          setSelectedMatch((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  match: {
+                    ...prev.match,
+                    interviewPrep: data.interviewPrep,
+                  },
+                }
+              : null
+          );
+        }
+      } else if (data.error) {
+        alert(data.error);
+      }
+    } catch (err: any) {
+      alert("Failed to generate interview prep: " + err.message);
+    } finally {
+      setPreparingInterview(false);
     }
   }
 
@@ -375,18 +447,40 @@ export default function Dashboard() {
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
-                  <button
-                    onClick={() => {
-                      setSelectedMatch(item);
-                      if (!match.gapAnalysis) {
-                        runGapAnalysis(match.id);
-                      }
-                    }}
-                    className="actionBtn primary"
-                    style={{ fontSize: 13 }}
-                  >
-                    {match.gapAnalysis ? "View Resume Tips & Gap" : "Analyze Fit & Tips"}
-                  </button>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      onClick={() => {
+                        setSelectedMatch(item);
+                        setModalTab("gap");
+                        if (!match.gapAnalysis) {
+                          runGapAnalysis(match.id);
+                        }
+                      }}
+                      className="actionBtn primary"
+                      style={{ fontSize: 13 }}
+                    >
+                      {match.gapAnalysis ? "View Resume Tips & Gap" : "Analyze Fit & Tips"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedMatch(item);
+                        setModalTab("interview");
+                        if (!match.interviewPrep) {
+                          runInterviewPrep(match.id);
+                        }
+                      }}
+                      className="actionBtn"
+                      style={{
+                        fontSize: 13,
+                        background: "#ede9fe",
+                        borderColor: "#c4b5fd",
+                        color: "#5b21b6",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {match.interviewPrep ? "View Interview Prep" : "🎯 Interview Prep"}
+                    </button>
+                  </div>
 
                   <div style={{ display: "flex", gap: 6 }}>
                     {match.status !== "APPLIED" && (
@@ -424,7 +518,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Gap Analysis & Resume Suggestions Modal */}
+      {/* Gap Analysis & Interview Prep Modal */}
       {selectedMatch && (
         <div
           style={{
@@ -446,7 +540,7 @@ export default function Dashboard() {
               borderRadius: 12,
               padding: 30,
               width: "100%",
-              maxWidth: 700,
+              maxWidth: 750,
               maxHeight: "90vh",
               overflowY: "auto",
               boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
@@ -460,12 +554,14 @@ export default function Dashboard() {
                     fontWeight: 700,
                     padding: "3px 8px",
                     borderRadius: 12,
-                    background: "#e0f2fe",
-                    color: "#0369a1",
+                    background: modalTab === "interview" ? "#ede9fe" : "#e0f2fe",
+                    color: modalTab === "interview" ? "#5b21b6" : "#0369a1",
                     textTransform: "uppercase",
                   }}
                 >
-                  {selectedMatch.match.gapAnalysis?.fitLevel || "Candidate Fit Analysis"}
+                  {modalTab === "interview"
+                    ? "Interview Prep"
+                    : selectedMatch.match.gapAnalysis?.fitLevel || "Candidate Fit Analysis"}
                 </span>
                 <h2 style={{ margin: "8px 0 4px", fontSize: 22, color: "var(--navy)" }}>
                   {selectedMatch.job.title}
@@ -489,152 +585,385 @@ export default function Dashboard() {
               </button>
             </div>
 
-            {analyzing ? (
-              <div style={{ padding: "40px 0", textAlign: "center", color: "var(--text-muted)" }}>
-                Evaluating role requirements and generating actionable resume suggestions with Gemini...
-              </div>
-            ) : selectedMatch.match.gapAnalysis ? (
-              <div style={{ marginTop: 24 }}>
-                {/* Summary reasoning */}
-                <div style={{ background: "#f8fafc", padding: 16, borderRadius: 8, marginBottom: 20 }}>
-                  <h4 style={{ margin: "0 0 6px", fontSize: 14, color: "var(--navy)" }}>
-                    Match Reasoning ({Math.round(selectedMatch.match.matchScore)}/100)
-                  </h4>
-                  <p style={{ margin: 0, fontSize: 13.5, color: "var(--text)" }}>
-                    {selectedMatch.match.gapAnalysis.summaryReasoning}
-                  </p>
-                </div>
+            {/* Modal Tab Switcher */}
+            <div style={{ display: "flex", gap: 0, marginTop: 16, borderBottom: "2px solid var(--border)" }}>
+              <button
+                onClick={() => setModalTab("gap")}
+                style={{
+                  padding: "8px 20px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  background: "none",
+                  border: "none",
+                  borderBottom: modalTab === "gap" ? "2px solid var(--navy)" : "2px solid transparent",
+                  color: modalTab === "gap" ? "var(--navy)" : "var(--text-muted)",
+                  cursor: "pointer",
+                  marginBottom: -2,
+                }}
+              >
+                Resume Gap & Tips
+              </button>
+              <button
+                onClick={() => {
+                  setModalTab("interview");
+                  if (!selectedMatch.match.interviewPrep) {
+                    runInterviewPrep(selectedMatch.match.id);
+                  }
+                }}
+                style={{
+                  padding: "8px 20px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  background: "none",
+                  border: "none",
+                  borderBottom: modalTab === "interview" ? "2px solid #7c3aed" : "2px solid transparent",
+                  color: modalTab === "interview" ? "#7c3aed" : "var(--text-muted)",
+                  cursor: "pointer",
+                  marginBottom: -2,
+                }}
+              >
+                🎯 Interview Prep
+              </button>
+            </div>
 
-                {/* Strengths & Missing Skills Grid */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
-                  <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: 14, borderRadius: 8 }}>
-                    <h4 style={{ margin: "0 0 8px", fontSize: 13, color: "#166534" }}>
-                      Matched Strengths
-                    </h4>
-                    <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, color: "#14532d" }}>
-                      {(selectedMatch.match.gapAnalysis.strengths || []).map((s, idx) => (
-                        <li key={idx} style={{ marginBottom: 4 }}>{s}</li>
-                      ))}
-                    </ul>
+            {/* === GAP ANALYSIS TAB === */}
+            {modalTab === "gap" && (
+              <>
+                {analyzing ? (
+                  <div style={{ padding: "40px 0", textAlign: "center", color: "var(--text-muted)" }}>
+                    Evaluating role requirements and generating actionable resume suggestions with Gemini...
                   </div>
+                ) : selectedMatch.match.gapAnalysis ? (
+                  <div style={{ marginTop: 24 }}>
+                    <div style={{ background: "#f8fafc", padding: 16, borderRadius: 8, marginBottom: 20 }}>
+                      <h4 style={{ margin: "0 0 6px", fontSize: 14, color: "var(--navy)" }}>
+                        Match Reasoning ({Math.round(selectedMatch.match.matchScore)}/100)
+                      </h4>
+                      <p style={{ margin: 0, fontSize: 13.5, color: "var(--text)" }}>
+                        {selectedMatch.match.gapAnalysis.summaryReasoning}
+                      </p>
+                    </div>
 
-                  <div style={{ background: "#fef2f2", border: "1px solid #fecaca", padding: 14, borderRadius: 8 }}>
-                    <h4 style={{ margin: "0 0 8px", fontSize: 13, color: "#991b1b" }}>
-                      Missing Critical Skills
-                    </h4>
-                    <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, color: "#7f1d1d" }}>
-                      {(selectedMatch.match.gapAnalysis.missingCriticalSkills || []).map((s, idx) => (
-                        <li key={idx} style={{ marginBottom: 4 }}>{s}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-
-                {/* Tailored Suggestions */}
-                {selectedMatch.match.tailoredSuggestions && (
-                  <div>
-                    <h3 style={{ fontSize: 16, color: "var(--navy)", marginBottom: 12 }}>
-                      Actionable Resume Improvements
-                    </h3>
-
-                    {/* Summary Tweak */}
-                    {selectedMatch.match.tailoredSuggestions.summaryTweak && (
-                      <div style={{ marginBottom: 16, border: "1px solid var(--border)", borderRadius: 8, padding: 14 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--navy)" }}>
-                            Tailored Summary Rewrite
-                          </span>
-                          <button
-                            onClick={() =>
-                              copyToClipboard(
-                                selectedMatch.match.tailoredSuggestions!.summaryTweak!,
-                                "summary"
-                              )
-                            }
-                            className="chip"
-                            style={{ cursor: "pointer" }}
-                          >
-                            {copiedKey === "summary" ? "Copied!" : "Copy"}
-                          </button>
-                        </div>
-                        <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)" }}>
-                          {selectedMatch.match.tailoredSuggestions.summaryTweak}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Bullet Edits */}
-                    {(selectedMatch.match.tailoredSuggestions.suggestedBulletEdits || []).map((b, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          marginBottom: 12,
-                          border: "1px solid var(--border)",
-                          borderRadius: 8,
-                          padding: 14,
-                        }}
-                      >
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-faint)" }}>
-                            Suggested Bullet Rewrite #{idx + 1}
-                          </span>
-                          <button
-                            onClick={() => copyToClipboard(b.improvedBullet || "", `bullet-${idx}`)}
-                            className="chip"
-                            style={{ cursor: "pointer" }}
-                          >
-                            {copiedKey === `bullet-${idx}` ? "Copied!" : "Copy Bullet"}
-                          </button>
-                        </div>
-                        <div style={{ fontSize: 12, color: "var(--text-faint)", textDecoration: "line-through", marginBottom: 4 }}>
-                          {b.originalBullet}
-                        </div>
-                        <div style={{ fontSize: 13, color: "#166534", fontWeight: 500 }}>
-                          {b.improvedBullet}
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* Keywords to integrate */}
-                    {selectedMatch.match.tailoredSuggestions.keywordsToIntegrate && (
-                      <div style={{ marginTop: 14 }}>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
-                          Keywords to integrate for ATS scan:
-                        </span>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                          {selectedMatch.match.tailoredSuggestions.keywordsToIntegrate.map((kw, idx) => (
-                            <span
-                              key={idx}
-                              style={{
-                                fontSize: 12,
-                                background: "#fef3c7",
-                                color: "#92400e",
-                                padding: "3px 8px",
-                                borderRadius: 4,
-                                fontWeight: 500,
-                              }}
-                            >
-                              + {kw}
-                            </span>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
+                      <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: 14, borderRadius: 8 }}>
+                        <h4 style={{ margin: "0 0 8px", fontSize: 13, color: "#166534" }}>
+                          Matched Strengths
+                        </h4>
+                        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, color: "#14532d" }}>
+                          {(selectedMatch.match.gapAnalysis.strengths || []).map((s, idx) => (
+                            <li key={idx} style={{ marginBottom: 4 }}>{s}</li>
                           ))}
-                        </div>
+                        </ul>
+                      </div>
+
+                      <div style={{ background: "#fef2f2", border: "1px solid #fecaca", padding: 14, borderRadius: 8 }}>
+                        <h4 style={{ margin: "0 0 8px", fontSize: 13, color: "#991b1b" }}>
+                          Missing Critical Skills
+                        </h4>
+                        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, color: "#7f1d1d" }}>
+                          {(selectedMatch.match.gapAnalysis.missingCriticalSkills || []).map((s, idx) => (
+                            <li key={idx} style={{ marginBottom: 4 }}>{s}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    {selectedMatch.match.tailoredSuggestions && (
+                      <div>
+                        <h3 style={{ fontSize: 16, color: "var(--navy)", marginBottom: 12 }}>
+                          Actionable Resume Improvements
+                        </h3>
+
+                        {selectedMatch.match.tailoredSuggestions.summaryTweak && (
+                          <div style={{ marginBottom: 16, border: "1px solid var(--border)", borderRadius: 8, padding: 14 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--navy)" }}>
+                                Tailored Summary Rewrite
+                              </span>
+                              <button
+                                onClick={() =>
+                                  copyToClipboard(
+                                    selectedMatch.match.tailoredSuggestions!.summaryTweak!,
+                                    "summary"
+                                  )
+                                }
+                                className="chip"
+                                style={{ cursor: "pointer" }}
+                              >
+                                {copiedKey === "summary" ? "Copied!" : "Copy"}
+                              </button>
+                            </div>
+                            <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)" }}>
+                              {selectedMatch.match.tailoredSuggestions.summaryTweak}
+                            </p>
+                          </div>
+                        )}
+
+                        {(selectedMatch.match.tailoredSuggestions.suggestedBulletEdits || []).map((b, idx) => (
+                          <div
+                            key={idx}
+                            style={{
+                              marginBottom: 12,
+                              border: "1px solid var(--border)",
+                              borderRadius: 8,
+                              padding: 14,
+                            }}
+                          >
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-faint)" }}>
+                                Suggested Bullet Rewrite #{idx + 1}
+                              </span>
+                              <button
+                                onClick={() => copyToClipboard(b.improvedBullet || "", `bullet-${idx}`)}
+                                className="chip"
+                                style={{ cursor: "pointer" }}
+                              >
+                                {copiedKey === `bullet-${idx}` ? "Copied!" : "Copy Bullet"}
+                              </button>
+                            </div>
+                            <div style={{ fontSize: 12, color: "var(--text-faint)", textDecoration: "line-through", marginBottom: 4 }}>
+                              {b.originalBullet}
+                            </div>
+                            <div style={{ fontSize: 13, color: "#166534", fontWeight: 500 }}>
+                              {b.improvedBullet}
+                            </div>
+                          </div>
+                        ))}
+
+                        {selectedMatch.match.tailoredSuggestions.keywordsToIntegrate && (
+                          <div style={{ marginTop: 14 }}>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
+                              Keywords to integrate for ATS scan:
+                            </span>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                              {selectedMatch.match.tailoredSuggestions.keywordsToIntegrate.map((kw, idx) => (
+                                <span
+                                  key={idx}
+                                  style={{
+                                    fontSize: 12,
+                                    background: "#fef3c7",
+                                    color: "#92400e",
+                                    padding: "3px 8px",
+                                    borderRadius: 4,
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  + {kw}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
+                  </div>
+                ) : (
+                  <div style={{ padding: "30px 0", textAlign: "center" }}>
+                    <p style={{ color: "var(--text-muted)", fontSize: 14 }}>
+                      No detailed gap analysis generated yet for this job.
+                    </p>
+                    <button
+                      onClick={() => runGapAnalysis(selectedMatch.match.id)}
+                      className="actionBtn primary"
+                    >
+                      Run Deep Gemini Gap Analysis
+                    </button>
                   </div>
                 )}
-              </div>
-            ) : (
-              <div style={{ padding: "30px 0", textAlign: "center" }}>
-                <p style={{ color: "var(--text-muted)", fontSize: 14 }}>
-                  No detailed gap analysis generated yet for this job.
-                </p>
-                <button
-                  onClick={() => runGapAnalysis(selectedMatch.match.id)}
-                  className="actionBtn primary"
-                >
-                  Run Deep Gemini Gap Analysis
-                </button>
-              </div>
+              </>
+            )}
+
+            {/* === INTERVIEW PREP TAB === */}
+            {modalTab === "interview" && (
+              <>
+                {preparingInterview ? (
+                  <div style={{ padding: "40px 0", textAlign: "center", color: "var(--text-muted)" }}>
+                    <div style={{ fontSize: 24, marginBottom: 12 }}>🎯</div>
+                    Generating personalized interview questions, technical challenges, and preparation plan with Gemini...
+                  </div>
+                ) : selectedMatch.match.interviewPrep ? (
+                  <div style={{ marginTop: 20 }}>
+                    {/* Behavioral Questions */}
+                    <div style={{ marginBottom: 24 }}>
+                      <h3 style={{ fontSize: 15, color: "var(--navy)", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 18 }}>💬</span> Behavioral Questions
+                      </h3>
+                      {(selectedMatch.match.interviewPrep.behavioralQuestions || []).map((q, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            marginBottom: 12,
+                            border: "1px solid #e2e8f0",
+                            borderRadius: 8,
+                            padding: 14,
+                            background: "#fafbfc",
+                          }}
+                        >
+                          <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--navy)", marginBottom: 6 }}>
+                            Q{idx + 1}: {q.question}
+                          </div>
+                          <div style={{ fontSize: 12, color: "#6366f1", marginBottom: 6, fontStyle: "italic" }}>
+                            Why they ask: {q.whyAsked}
+                          </div>
+                          <div style={{ fontSize: 12.5, color: "var(--text-muted)", background: "#fff", padding: "8px 10px", borderRadius: 6, borderLeft: "3px solid #a78bfa" }}>
+                            <strong>Answer framework:</strong> {q.answerFramework}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Technical Questions */}
+                    <div style={{ marginBottom: 24 }}>
+                      <h3 style={{ fontSize: 15, color: "var(--navy)", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 18 }}>⚙️</span> Technical Questions
+                      </h3>
+                      {(selectedMatch.match.interviewPrep.technicalQuestions || []).map((q, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            marginBottom: 12,
+                            border: "1px solid #e2e8f0",
+                            borderRadius: 8,
+                            padding: 14,
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                            <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--navy)" }}>
+                              {q.question}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                padding: "2px 8px",
+                                borderRadius: 12,
+                                background:
+                                  q.difficulty === "Hard" ? "#fef2f2" :
+                                  q.difficulty === "Medium" ? "#fef3c7" : "#f0fdf4",
+                                color:
+                                  q.difficulty === "Hard" ? "#991b1b" :
+                                  q.difficulty === "Medium" ? "#92400e" : "#166534",
+                              }}
+                            >
+                              {q.difficulty}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 12, color: "#7c3aed", marginBottom: 6 }}>
+                            Topic: {q.topic}
+                          </div>
+                          <div style={{ fontSize: 12.5, color: "var(--text-muted)", background: "#f1f5f9", padding: "6px 10px", borderRadius: 6 }}>
+                            💡 {q.hints}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* System Design Topics */}
+                    {(selectedMatch.match.interviewPrep.systemDesignTopics || []).length > 0 && (
+                      <div style={{ marginBottom: 24 }}>
+                        <h3 style={{ fontSize: 15, color: "var(--navy)", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 18 }}>🏗️</span> System Design Topics
+                        </h3>
+                        {selectedMatch.match.interviewPrep.systemDesignTopics!.map((sd, idx) => (
+                          <div
+                            key={idx}
+                            style={{
+                              marginBottom: 12,
+                              border: "1px solid #c7d2fe",
+                              borderRadius: 8,
+                              padding: 14,
+                              background: "#eef2ff",
+                            }}
+                          >
+                            <div style={{ fontSize: 13.5, fontWeight: 600, color: "#3730a3", marginBottom: 6 }}>
+                              {sd.scenario}
+                            </div>
+                            <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginBottom: 4 }}>
+                              <strong>Key considerations:</strong> {sd.keyConsiderations}
+                            </div>
+                            <div style={{ fontSize: 12, color: "#6366f1", fontStyle: "italic" }}>
+                              Relevance: {sd.relevanceToRole}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Preparation Tips */}
+                    <div style={{ marginBottom: 24 }}>
+                      <h3 style={{ fontSize: 15, color: "var(--navy)", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 18 }}>📋</span> Preparation Tips
+                      </h3>
+                      <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: 14 }}>
+                        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#78350f" }}>
+                          {(selectedMatch.match.interviewPrep.preparationTips || []).map((tip, idx) => (
+                            <li key={idx} style={{ marginBottom: 6 }}>{tip}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* Practice Areas */}
+                    <div style={{ marginBottom: 8 }}>
+                      <h3 style={{ fontSize: 15, color: "var(--navy)", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 18 }}>🔧</span> What to Practice
+                      </h3>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        {(selectedMatch.match.interviewPrep.practiceAreas || []).map((pa, idx) => (
+                          <div
+                            key={idx}
+                            style={{
+                              border: "1px solid #e2e8f0",
+                              borderRadius: 8,
+                              padding: 12,
+                              background: "#fff",
+                            }}
+                          >
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--navy)" }}>
+                                {pa.area}
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 700,
+                                  padding: "2px 6px",
+                                  borderRadius: 10,
+                                  background:
+                                    pa.priority === "Critical" ? "#fef2f2" :
+                                    pa.priority === "High" ? "#fef3c7" : "#f0fdf4",
+                                  color:
+                                    pa.priority === "Critical" ? "#991b1b" :
+                                    pa.priority === "High" ? "#92400e" : "#166534",
+                                }}
+                              >
+                                {pa.priority}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                              {pa.resources}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ padding: "30px 0", textAlign: "center" }}>
+                    <div style={{ fontSize: 40, marginBottom: 12 }}>🎯</div>
+                    <p style={{ color: "var(--text-muted)", fontSize: 14 }}>
+                      Generate personalized interview questions and preparation tips for this role.
+                    </p>
+                    <button
+                      onClick={() => runInterviewPrep(selectedMatch.match.id)}
+                      className="actionBtn primary"
+                      style={{ background: "#7c3aed", borderColor: "#7c3aed" }}
+                    >
+                      Generate Interview Prep
+                    </button>
+                  </div>
+                )}
+              </>
             )}
 
             <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between" }}>
