@@ -96,6 +96,8 @@ export default function Dashboard() {
   const [modalTab, setModalTab] = useState<"gap" | "interview">("gap");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [resendingVerification, setResendingVerification] = useState(false);
+  const [verificationFeedback, setVerificationFeedback] = useState("");
 
   const sessionUser = (session as any)?.user;
   const userId = sessionUser?.id;
@@ -151,7 +153,36 @@ export default function Dashboard() {
     }
   }
 
+  async function handleResendVerification() {
+    if (!sessionUser?.email) return;
+    setResendingVerification(true);
+    setVerificationFeedback("");
+    try {
+      const res = await fetch("/api/auth/send-verification-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: sessionUser.email, callbackURL: "/" }),
+      });
+      if (res.ok) {
+        setVerificationFeedback("Verification link sent! Check your inbox.");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setVerificationFeedback(data.message || "Failed to send verification email.");
+      }
+    } catch (err: any) {
+      setVerificationFeedback("Error: " + err.message);
+    } finally {
+      setResendingVerification(false);
+    }
+  }
+
   async function runGapAnalysis(matchId: string) {
+    if (sessionUser && sessionUser.emailVerified === false) {
+      alert(
+        "Please verify your email address to unlock AI Resume Gap Analysis. Check your inbox or click 'Resend Verification Email' at the top of the page."
+      );
+      return;
+    }
     try {
       setAnalyzing(true);
       const res = await fetch(`/api/matches/${matchId}/analyze`, {
@@ -202,6 +233,12 @@ export default function Dashboard() {
   }
 
   async function runInterviewPrep(matchId: string) {
+    if (sessionUser && sessionUser.emailVerified === false) {
+      alert(
+        "Please verify your email address to generate AI Interview Prep. Check your inbox or click 'Resend Verification Email' at the top of the page."
+      );
+      return;
+    }
     try {
       setPreparingInterview(true);
       const res = await fetch(`/api/matches/${matchId}/interview-prep`, {
@@ -321,6 +358,59 @@ export default function Dashboard() {
           </button>
         </div>
       </div>
+
+      {/* Email Verification Banner */}
+      {sessionUser && sessionUser.emailVerified === false && (
+        <div
+          style={{
+            background: "#fffbeb",
+            border: "1px solid #fde68a",
+            borderRadius: 10,
+            padding: "14px 20px",
+            marginBottom: 24,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 16,
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 24 }}>✉️</span>
+            <div>
+              <div style={{ fontWeight: 600, color: "#92400e", fontSize: 14 }}>
+                Please verify your email address
+              </div>
+              <div style={{ fontSize: 13, color: "#b45309", marginTop: 2 }}>
+                We sent a verification link to <strong>{sessionUser.email}</strong>. Please confirm your email to unlock AI Resume Gap Analysis and Interview Prep.
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {verificationFeedback ? (
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#166534" }}>
+                {verificationFeedback}
+              </span>
+            ) : (
+              <button
+                onClick={handleResendVerification}
+                disabled={resendingVerification}
+                className="actionBtn"
+                style={{
+                  fontSize: 12.5,
+                  padding: "6px 14px",
+                  background: "#fff",
+                  borderColor: "#fcd34d",
+                  color: "#92400e",
+                  fontWeight: 600,
+                }}
+              >
+                {resendingVerification ? "Sending..." : "Resend Verification Email"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Metrics Row */}
       <div className="statRow">
