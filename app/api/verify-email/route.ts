@@ -76,10 +76,12 @@ export async function POST(req: NextRequest) {
       state: wasAlreadyVerified ? "already_verified" : "just_verified",
     });
 
-    // Forward session cookie so user is logged in
-    const setCookie = verifyRes.headers.get("set-cookie");
-    if (setCookie) {
-      response.headers.set("set-cookie", setCookie);
+    // Only auto-sign in if newly verified (prevents old links from unexpectedly logging out users back in)
+    if (!wasAlreadyVerified) {
+      const setCookie = verifyRes.headers.get("set-cookie");
+      if (setCookie) {
+        response.headers.set("set-cookie", setCookie);
+      }
     }
 
     return response;
