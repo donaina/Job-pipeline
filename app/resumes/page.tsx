@@ -141,10 +141,17 @@ export default function ResumesPage() {
     try {
       const res = await fetch("/api/matches/sync", { method: "POST" });
       const data = await res.json();
-      alert(`Sync complete! ${data.matched || 0} jobs matched.`);
+      const count = Number(data.matched || 0);
+      const total = Number(data.totalTop || 50);
+
+      if (count > 0) {
+        alert(`🎯 Sync complete! Added or updated ${count} new higher-scoring job matches.`);
+      } else {
+        alert(`✨ All matches are up to date! Your dashboard has your top ${total} roles matched across your resumes.`);
+      }
       router.push("/");
-    } catch (err) {
-      alert("Error syncing matches.");
+    } catch (err: any) {
+      alert("Error syncing matches: " + (err.message || "Failed"));
     } finally {
       setStatusMsg("");
     }
