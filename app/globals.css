@@ -352,11 +352,18 @@ body {
   flex-wrap: wrap;
 }
 
+.filterSearch {
+  flex: 1 1 200px;
+  min-width: 170px;
+  position: relative;
+}
+
 .filterGroup {
   display: flex;
   align-items: center;
   gap: 6px;
   flex: 0 1 auto;
+  min-width: 0;
 }
 
 .filterSelect {
@@ -368,6 +375,11 @@ body {
   outline: none;
   background: #ffffff;
   min-height: 38px;
+  max-width: 210px;
+  width: auto;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .jobRowActions {
@@ -462,6 +474,11 @@ body {
     gap: 10px;
   }
 
+  .filterSearch {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
   .filterGroup {
     width: 100%;
     display: flex;
@@ -476,6 +493,7 @@ body {
 
   .filterSelect {
     width: 100%;
+    max-width: 100% !important;
     min-height: 42px;
     font-size: 14px;
   }

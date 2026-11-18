@@ -1,5 +1,5 @@
 import { fetchAllJobs } from "../fetchers/index.js";
-import { filterJobs } from "../filters.js";
+import { filterJobs, detectWorkplaceType } from "../filters.js";
 import { db } from "../db";
 import { jobs } from "../db/schema";
 import { generateEmbedding } from "../ai/embeddings";
@@ -28,6 +28,8 @@ export async function ingestGlobalJobs() {
         .update(`${job.company || ""}-${job.title || ""}-${link}`)
         .digest("hex");
 
+      const workplaceType = detectWorkplaceType(job);
+
       // Check if job already exists
       const existing = await db
         .select({ id: jobs.id })
@@ -35,7 +37,16 @@ export async function ingestGlobalJobs() {
         .where(eq(jobs.externalId, externalId))
         .limit(1);
 
-      if (existing.length > 0) continue;
+      if (existing.length > 0) {
+        // Self-heal workplace arrangement if previously default
+        if (workplaceType !== "remote") {
+          await db
+            .update(jobs)
+            .set({ remoteType: workplaceType })
+            .where(eq(jobs.id, existing[0].id));
+        }
+        continue;
+      }
 
       await db.insert(jobs).values({
         externalId,
@@ -43,14 +54,18 @@ export async function ingestGlobalJobs() {
         company: job.company || "Unknown Company",
         title: job.title || "Software Engineer",
         description: job.description || "",
-        location: job.location || "Remote",
-        remoteType: "remote",
+        location: job.location || (workplaceType === "remote" ? "Remote" : "On-site"),
+        remoteType: workplaceType,
         salaryEst: job.salary || null,
         applyUrl: link,
         applyEmail: job.applyEmail || null,
         tags: [
           ...(job.tags || []),
-          job.locationRestricted ? "Region-Specific Remote" : "Worldwide Remote",
+          workplaceType === "remote"
+            ? (job.locationRestricted ? "Region-Specific Remote" : "Worldwide Remote")
+            : workplaceType === "hybrid"
+            ? "Hybrid"
+            : "On-site",
         ],
         embedding: null,
       });
