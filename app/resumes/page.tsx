@@ -88,8 +88,14 @@ export default function ResumesPage() {
           method: "POST",
           body: formData,
         });
-        const result = await res.json();
-        if (result.error) throw new Error(result.error);
+        const text = await res.text();
+        let result: any = {};
+        try {
+          result = JSON.parse(text);
+        } catch {
+          throw new Error(`Server returned HTTP ${res.status}. Failed to process resume.`);
+        }
+        if (!res.ok || result.error) throw new Error(result.error || `Upload failed (${res.status})`);
       } else {
         const parsedData = {
           summary: manualExperience.summary,
@@ -107,11 +113,17 @@ export default function ResumesPage() {
             parsedData,
           }),
         });
-        const result = await res.json();
-        if (result.error) throw new Error(result.error);
+        const text = await res.text();
+        let result: any = {};
+        try {
+          result = JSON.parse(text);
+        } catch {
+          throw new Error(`Server returned HTTP ${res.status}. Failed to process resume.`);
+        }
+        if (!res.ok || result.error) throw new Error(result.error || `Save failed (${res.status})`);
       }
 
-      setStatusMsg("Saved successfully!");
+      setStatusMsg("Saved successfully! Finding new matches in background...");
       setActiveSlot(null);
       setFile(null);
       setLabel("");
