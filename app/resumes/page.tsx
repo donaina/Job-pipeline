@@ -168,11 +168,11 @@ export default function ResumesPage() {
       <div className="pageHead">
         <div>
           <h1 className="wordmark">Your 3 Resumes</h1>
-          <p style={{ color: "var(--text-muted)", margin: "4px 0 0" }}>
+          <p className="tagline" style={{ margin: "4px 0 0" }}>
             Upload or manually configure up to 3 specialized CVs to automatically match different roles.
           </p>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div className="headActions">
           <Link href="/" className="actionBtn" style={{ textDecoration: "none" }}>
             Back to Dashboard
           </Link>
@@ -188,7 +188,7 @@ export default function ResumesPage() {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20, marginBottom: 40 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(280px, 100%), 1fr))", gap: 20, marginBottom: 40 }}>
         {slots.map((slotNum) => {
           const resume = resumes.find((r) => r.slotNumber === slotNum);
           const isLocked =
@@ -295,29 +295,12 @@ export default function ResumesPage() {
 
       {activeSlot && (
         <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
+          className="modalOverlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setActiveSlot(null);
           }}
         >
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 12,
-              padding: 30,
-              width: "100%",
-              maxWidth: 500,
-              boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
-            }}
-          >
+          <div className="modalDialog" style={{ maxWidth: 520 }}>
             <h2 style={{ marginTop: 0, fontSize: 20, color: "var(--navy)" }}>
               Configure Resume (Slot {activeSlot})
             </h2>

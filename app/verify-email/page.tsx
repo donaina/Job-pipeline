@@ -84,17 +84,8 @@ function VerifyEmailContent() {
   }
 
   return (
-    <div style={{ maxWidth: 480, margin: "80px auto", padding: "0 20px" }}>
-      <div
-        style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          borderRadius: 14,
-          padding: 36,
-          boxShadow: "0 6px 20px rgba(0,0,0,0.04)",
-          textAlign: "center",
-        }}
-      >
+    <div className="authWrap">
+      <div className="authCard" style={{ textAlign: "center" }}>
         {/* Loading State */}
         {status === "loading" && (
           <div>

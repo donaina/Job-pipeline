@@ -289,12 +289,255 @@ body {
   font-size: 14px;
 }
 
+/* Responsive Base & Helpers */
+.tableResponsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.48);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.modalDialog {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 28px;
+  width: 100%;
+  max-width: 750px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18);
+  margin: auto;
+}
+
+.authWrap {
+  max-width: 440px;
+  margin: 60px auto;
+  padding: 0 20px;
+}
+
+.authCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.filterBar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.filterRow {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 auto;
+}
+
+.filterSelect {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 13.5px;
+  cursor: pointer;
+  outline: none;
+  background: #ffffff;
+  min-height: 38px;
+}
+
+.jobRowActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.actionRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Mobile Responsive Optimization (< 640px) */
 @media (max-width: 640px) {
+  .wrap {
+    padding: 20px 14px 64px;
+  }
+
+  .pageHead {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .wordmark {
+    font-size: 26px;
+  }
+
+  .tagline {
+    font-size: 13px;
+  }
+
+  .headActions {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .headActions > * {
+    flex: 1 1 calc(50% - 8px);
+    text-align: center;
+    justify-content: center;
+    padding: 8px 10px;
+  }
+
+  .statRow {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px 16px;
+    padding: 14px 0;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .statNumber {
+    font-size: 26px;
+  }
+
+  .statLabel {
+    font-size: 12px;
+  }
+
+  .tabs {
+    gap: 16px;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab {
+    font-size: 13px;
+    padding-bottom: 10px;
+  }
+
+  .filterBar {
+    padding: 12px 14px;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .filterRow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .filterGroup {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .filterGroup label {
+    font-size: 12px !important;
+  }
+
+  .filterSelect {
+    width: 100%;
+    min-height: 42px;
+    font-size: 14px;
+  }
+
   .jobRow {
     flex-direction: column;
+    padding: 16px 14px;
+    gap: 14px;
   }
-  .statRow {
-    gap: 28px;
+
+  .jobTitle {
+    font-size: 15.5px;
+  }
+
+  .jobCompany {
+    font-size: 12.5px;
+    gap: 6px 8px;
+  }
+
+  .jobRowActions {
+    width: 100%;
+    align-items: stretch;
+    margin-top: 2px;
+  }
+
+  .actionRow {
+    width: 100%;
+  }
+
+  .actionRow > button,
+  .actionRow > a {
+    flex: 1;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .modalDialog {
+    padding: 18px 14px;
+    border-radius: 10px;
+    max-height: 88vh;
+  }
+
+  .authWrap {
+    margin: 24px auto 48px;
+    padding: 0 14px;
+  }
+
+  .authCard {
+    padding: 22px 16px;
+    border-radius: 10px;
+  }
+
+  /* Prevent automatic iOS Safari zoom on focus */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  select,
+  textarea {
+    font-size: 16px !important;
   }
 }
 .liLinks {

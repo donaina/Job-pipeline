@@ -76,17 +76,8 @@ export default function LoginPage() {
 
   if (signUpSuccess) {
     return (
-      <div style={{ maxWidth: 460, margin: "80px auto", padding: "0 20px" }}>
-        <div
-          style={{
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            borderRadius: 12,
-            padding: 36,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
-            textAlign: "center",
-          }}
-        >
+      <div className="authWrap">
+        <div className="authCard" style={{ textAlign: "center" }}>
           <div
             style={{
               width: 56,
@@ -149,16 +140,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ maxWidth: 420, margin: "80px auto", padding: "0 20px" }}>
-      <div
-        style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          borderRadius: 12,
-          padding: 32,
-          boxShadow: "0 4px 12px rgba(0,0,0,0.03)",
-        }}
-      >
+    <div className="authWrap">
+      <div className="authCard">
         <h1
           style={{
             fontFamily: "var(--font-display, serif)",

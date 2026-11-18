@@ -771,21 +771,10 @@ export default function Dashboard() {
       </div>
 
       {/* Multi-Filter Bar */}
-      <div
-        style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          borderRadius: 12,
-          padding: "14px 18px",
-          marginTop: 20,
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-        }}
-      >
-        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+      <div className="filterBar">
+        <div className="filterRow">
           {/* Keyword Search */}
-          <div style={{ position: "relative", flex: "1 1 240px", minWidth: 200 }}>
+          <div className="filterSearch" style={{ position: "relative" }}>
             <span
               style={{
                 position: "absolute",
@@ -809,10 +798,11 @@ export default function Dashboard() {
                 padding: "8px 10px 8px 32px",
                 borderRadius: 8,
                 border: "1px solid var(--border)",
-                fontSize: 13,
+                fontSize: 13.5,
                 outline: "none",
                 background: "#faf9f6",
                 color: "var(--text)",
+                minHeight: 38,
               }}
             />
             {searchQuery && (
@@ -837,7 +827,7 @@ export default function Dashboard() {
           </div>
 
           {/* Location Dropdown */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "0 1 auto" }}>
+          <div className="filterGroup">
             <label
               style={{
                 fontSize: 12.5,
@@ -851,17 +841,12 @@ export default function Dashboard() {
             <select
               value={locationFilter}
               onChange={(e) => setLocationFilter(e.target.value)}
+              className="filterSelect"
               style={{
-                padding: "7px 10px",
-                borderRadius: 8,
-                border: "1px solid",
                 borderColor: locationFilter !== "ALL" ? "#93c5fd" : "var(--border)",
                 background: locationFilter !== "ALL" ? "#eff6ff" : "#fff",
                 color: locationFilter !== "ALL" ? "#1e40af" : "var(--text)",
                 fontWeight: locationFilter !== "ALL" ? 600 : 400,
-                fontSize: 13,
-                cursor: "pointer",
-                outline: "none",
               }}
             >
               <option value="ALL">All Locations</option>
@@ -886,7 +871,7 @@ export default function Dashboard() {
           </div>
 
           {/* Job Type Dropdown */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "0 1 auto" }}>
+          <div className="filterGroup">
             <label
               style={{
                 fontSize: 12.5,
@@ -900,17 +885,12 @@ export default function Dashboard() {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
+              className="filterSelect"
               style={{
-                padding: "7px 10px",
-                borderRadius: 8,
-                border: "1px solid",
                 borderColor: typeFilter !== "ALL" ? "#c4b5fd" : "var(--border)",
                 background: typeFilter !== "ALL" ? "#f5f3ff" : "#fff",
                 color: typeFilter !== "ALL" ? "#5b21b6" : "var(--text)",
                 fontWeight: typeFilter !== "ALL" ? 600 : 400,
-                fontSize: 13,
-                cursor: "pointer",
-                outline: "none",
               }}
             >
               <option value="ALL">All Job Types</option>
@@ -922,7 +902,7 @@ export default function Dashboard() {
           </div>
 
           {/* CV Track Dropdown */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "0 1 auto" }}>
+          <div className="filterGroup">
             <label
               style={{
                 fontSize: 12.5,
@@ -936,17 +916,12 @@ export default function Dashboard() {
             <select
               value={resumeFilter}
               onChange={(e) => setResumeFilter(e.target.value)}
+              className="filterSelect"
               style={{
-                padding: "7px 10px",
-                borderRadius: 8,
-                border: "1px solid",
                 borderColor: resumeFilter !== "ALL" ? "#fcd34d" : "var(--border)",
                 background: resumeFilter !== "ALL" ? "#fef3c7" : "#fff",
                 color: resumeFilter !== "ALL" ? "#92400e" : "var(--text)",
                 fontWeight: resumeFilter !== "ALL" ? 600 : 400,
-                fontSize: 13,
-                cursor: "pointer",
-                outline: "none",
               }}
             >
               <option value="ALL">All Resumes</option>
@@ -1147,8 +1122,8 @@ export default function Dashboard() {
                   )}
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
-                  <div style={{ display: "flex", gap: 6 }}>
+                <div className="jobRowActions">
+                  <div className="actionRow">
                     <button
                       onClick={() => {
                         setSelectedMatch(item);
@@ -1183,7 +1158,7 @@ export default function Dashboard() {
                     </button>
                   </div>
 
-                  <div style={{ display: "flex", gap: 6 }}>
+                  <div className="actionRow">
                     {match.status !== "APPLIED" && (
                       <button
                         onClick={() => updateStatus(match.id, "APPLIED")}
@@ -1221,32 +1196,8 @@ export default function Dashboard() {
 
       {/* Gap Analysis & Interview Prep Modal */}
       {selectedMatch && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 12,
-              padding: 30,
-              width: "100%",
-              maxWidth: 750,
-              maxHeight: "90vh",
-              overflowY: "auto",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
-            }}
-          >
+        <div className="modalOverlay" onClick={(e) => { if (e.target === e.currentTarget) setSelectedMatch(null); }}>
+          <div className="modalDialog">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
                 <span
