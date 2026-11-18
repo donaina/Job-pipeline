@@ -106,13 +106,17 @@ export async function POST(req: NextRequest) {
         console.warn("AI parse fallback:", aiErr.message);
         parsedData = { summary: rawText.slice(0, 500) };
       }
+
+      if ((!label || label.toLowerCase().startsWith("resume ")) && parsedData?.targetRole) {
+        label = parsedData.targetRole;
+      }
     } else {
       // Manual experience input (JSON body)
       const body = await req.json();
       slotNumber = Number(body.slotNumber || 1);
-      label = body.label || `Resume ${slotNumber}`;
-      inputType = "MANUAL_ENTRY";
       parsedData = body.parsedData || {};
+      label = body.label || parsedData.targetRole || `Resume ${slotNumber}`;
+      inputType = "MANUAL_ENTRY";
       rawText = JSON.stringify(parsedData, null, 2);
     }
 

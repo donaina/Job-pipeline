@@ -1,4 +1,4 @@
-import { ai } from "./gemini";
+import { generateContentWithFallback } from "./gemini";
 import { ParsedResume } from "./parseResume";
 
 export interface InterviewPrepResult {
@@ -65,9 +65,9 @@ GENERATION GOALS:
 5. **Practice Areas** (4-6): Specific technical areas, tools, or concepts the candidate should practice before the interview. Include priority level (Critical/High/Medium) and recommended free resources or approaches to practice.
 `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3.5-flash",
+  const response = await generateContentWithFallback({
     contents: prompt,
+    preferredModel: "gemini-3.5-flash-lite",
     config: {
       responseMimeType: "application/json",
       responseSchema: {
