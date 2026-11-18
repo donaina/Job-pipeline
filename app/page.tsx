@@ -96,6 +96,10 @@ export default function Dashboard() {
   const [modalTab, setModalTab] = useState<"gap" | "interview">("gap");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState<{
+    message: string;
+    type: "success" | "info" | "error";
+  } | null>(null);
   const [resendingVerification, setResendingVerification] = useState(false);
   const [verificationFeedback, setVerificationFeedback] = useState("");
 
@@ -284,13 +288,32 @@ export default function Dashboard() {
 
   async function handleSync() {
     setSyncing(true);
+    setSyncFeedback(null);
     try {
       const res = await fetch("/api/matches/sync", { method: "POST" });
       const data = await res.json();
-      alert(`Job matching synced! ${data.matched || 0} new matches added.`);
+      if (!res.ok || data.error) throw new Error(data.error || "Sync failed");
+
+      const count = Number(data.matched || 0);
+      const total = Number(data.totalTop || matches.length || 50);
+
+      if (count > 0) {
+        setSyncFeedback({
+          message: `🎯 Sync complete! Added or updated ${count} higher-scoring job matches.`,
+          type: "success",
+        });
+      } else {
+        setSyncFeedback({
+          message: `✨ All matches are up to date! Displaying your top ${total} roles actively matched across your resumes.`,
+          type: "info",
+        });
+      }
       await loadMatches();
     } catch (err: any) {
-      alert("Failed to sync matches: " + err.message);
+      setSyncFeedback({
+        message: "Failed to sync matches: " + err.message,
+        type: "error",
+      });
     } finally {
       setSyncing(false);
     }
@@ -358,6 +381,56 @@ export default function Dashboard() {
           </button>
         </div>
       </div>
+
+      {/* Sync Status Banner */}
+      {syncFeedback && (
+        <div
+          style={{
+            padding: "12px 18px",
+            borderRadius: 8,
+            marginBottom: 20,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            fontSize: 13.5,
+            fontWeight: 500,
+            background:
+              syncFeedback.type === "success"
+                ? "#f0fdf4"
+                : syncFeedback.type === "info"
+                ? "#eff6ff"
+                : "#fef2f2",
+            border:
+              syncFeedback.type === "success"
+                ? "1px solid #bbf7d0"
+                : syncFeedback.type === "info"
+                ? "1px solid #bfdbfe"
+                : "1px solid #fecaca",
+            color:
+              syncFeedback.type === "success"
+                ? "#166534"
+                : syncFeedback.type === "info"
+                ? "#1e40af"
+                : "#991b1b",
+          }}
+        >
+          <span>{syncFeedback.message}</span>
+          <button
+            onClick={() => setSyncFeedback(null)}
+            style={{
+              background: "none",
+              border: "none",
+              fontSize: 18,
+              cursor: "pointer",
+              color: "inherit",
+              lineHeight: 1,
+              padding: "0 4px",
+            }}
+          >
+            &times;
+          </button>
+        </div>
+      )}
 
       {/* Email Verification Banner */}
       {sessionUser && sessionUser.emailVerified === false && (
