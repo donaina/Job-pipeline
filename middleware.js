@@ -3,6 +3,17 @@ import { NextResponse } from "next/server";
 export function middleware(request) {
   const { pathname } = request.nextUrl;
 
+  // Intercept raw Better Auth email verification links (/api/auth/verify-email)
+  // and route them to our dedicated UI page (/verify-email) so users see the confirmation state
+  if (pathname === "/api/auth/verify-email") {
+    const token = request.nextUrl.searchParams.get("token");
+    if (token) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/verify-email";
+      return NextResponse.redirect(url);
+    }
+  }
+
   // 1. Allow public assets, Next.js internal files, and auth endpoints
   if (
     pathname.startsWith("/api/auth") ||

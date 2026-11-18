@@ -196,19 +196,33 @@ function VerifyEmailContent() {
               The email address <strong style={{ color: "var(--navy)" }}>{verifiedEmail}</strong> has already been confirmed previously. Your account is active and ready to use.
             </p>
 
-            <Link
-              href="/"
-              className="actionBtn primary"
-              style={{
-                textDecoration: "none",
-                display: "block",
-                padding: "12px 24px",
-                fontSize: 14.5,
-                fontWeight: 600,
-              }}
-            >
-              Go to Dashboard &rarr;
-            </Link>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <Link
+                href="/"
+                className="actionBtn primary"
+                style={{
+                  textDecoration: "none",
+                  display: "block",
+                  padding: "12px 24px",
+                  fontSize: 14.5,
+                  fontWeight: 600,
+                }}
+              >
+                Go to Dashboard &rarr;
+              </Link>
+              <Link
+                href="/login"
+                className="actionBtn"
+                style={{
+                  textDecoration: "none",
+                  display: "block",
+                  padding: "10px 24px",
+                  fontSize: 13.5,
+                }}
+              >
+                Sign In to Another Account
+              </Link>
+            </div>
           </div>
         )}
 

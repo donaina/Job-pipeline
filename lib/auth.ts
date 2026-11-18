@@ -21,11 +21,18 @@ export const auth = betterAuth({
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
     expiresIn: 3600, // 1 hour
-    sendVerificationEmail: async ({ user, url }) => {
+    sendVerificationEmail: async ({ user, token }) => {
+      const appUrl =
+        process.env.NEXT_PUBLIC_APP_URL ||
+        process.env.BETTER_AUTH_URL ||
+        "https://job-pipeline.eduvrse.co";
+      const cleanAppUrl = appUrl.replace(/\/+$/, "");
+      const verificationUrl = `${cleanAppUrl}/verify-email?token=${encodeURIComponent(token)}`;
+
       await sendVerificationEmail({
         to: user.email,
         name: user.name,
-        verificationUrl: url,
+        verificationUrl,
       });
     },
   },
