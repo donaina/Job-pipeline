@@ -207,3 +207,79 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await auth.api.getSession({
+      headers: req.headers,
+    });
+
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const searchParams = req.nextUrl.searchParams;
+    let slotNumber = Number(searchParams.get("slotNumber") || 0);
+
+    if (!slotNumber) {
+      try {
+        const body = await req.json();
+        slotNumber = Number(body.slotNumber || 0);
+      } catch {}
+    }
+
+    if (![1, 2, 3].includes(slotNumber)) {
+      return NextResponse.json(
+        { error: "slotNumber must be 1, 2, or 3." },
+        { status: 400 }
+      );
+    }
+
+    const [existing] = await db
+      .select()
+      .from(resumes)
+      .where(
+        and(eq(resumes.userId, session.user.id), eq(resumes.slotNumber, slotNumber))
+      );
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: `No resume in slot ${slotNumber} found.` },
+        { status: 404 }
+      );
+    }
+
+    await db
+      .delete(resumes)
+      .where(
+        and(eq(resumes.userId, session.user.id), eq(resumes.slotNumber, slotNumber))
+      );
+
+    if (existing.fileUrl && existing.fileUrl.startsWith("/uploads/resumes/")) {
+      try {
+        const relativeFilePath = existing.fileUrl.replace("/uploads/resumes/", "");
+        const diskPath = path.join(UPLOADS_DIR, relativeFilePath);
+        await fs.unlink(diskPath);
+      } catch (unlinkErr) {
+        console.warn("Could not delete local file from disk:", unlinkErr);
+      }
+    }
+
+    matchJobsForUser(session.user.id).catch((matchErr) => {
+      console.warn("[resumes delete] Background matching warning:", matchErr);
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `Resume in slot ${slotNumber} deleted successfully.`,
+      deletedSlot: slotNumber,
+    });
+  } catch (error: any) {
+    console.error("Failed to delete resume:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to delete resume." },
+      { status: 500 }
+    );
+  }
+}
+
+

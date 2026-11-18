@@ -16,16 +16,37 @@ export async function GET(req: NextRequest) {
         id: user.id,
         name: user.name,
         email: user.email,
+        emailVerified: user.emailVerified,
         role: user.role,
         subscriptionTier: user.subscriptionTier,
         subscriptionStatus: user.subscriptionStatus,
         aiAnalysisCount: user.aiAnalysisCount,
+        preferences: user.preferences,
         createdAt: user.createdAt,
       })
       .from(user)
       .orderBy(desc(user.createdAt));
 
-    return NextResponse.json({ users: allUsers });
+    // Get count of configured resumes for each user
+    const resumeCounts = await db
+      .select({
+        userId: resumes.userId,
+        count: sql<number>`count(*)`,
+      })
+      .from(resumes)
+      .groupBy(resumes.userId);
+
+    const countMap = new Map<string, number>();
+    for (const r of resumeCounts) {
+      countMap.set(r.userId, Number(r.count || 0));
+    }
+
+    const usersWithMeta = allUsers.map((u) => ({
+      ...u,
+      resumeCount: countMap.get(u.id) || 0,
+    }));
+
+    return NextResponse.json({ users: usersWithMeta });
   } catch (err: any) {
     console.error("Admin users error:", err);
     return NextResponse.json(
@@ -43,7 +64,16 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { userId, role, subscriptionTier, subscriptionStatus } = body;
+    const {
+      userId,
+      name,
+      email,
+      role,
+      subscriptionTier,
+      subscriptionStatus,
+      emailVerified,
+      preferences,
+    } = body;
 
     if (!userId) {
       return NextResponse.json({ error: "userId is required." }, { status: 400 });
@@ -52,9 +82,13 @@ export async function PATCH(req: NextRequest) {
     const [updated] = await db
       .update(user)
       .set({
-        ...(role ? { role } : {}),
-        ...(subscriptionTier ? { subscriptionTier } : {}),
-        ...(subscriptionStatus ? { subscriptionStatus } : {}),
+        ...(name !== undefined ? { name } : {}),
+        ...(email !== undefined ? { email } : {}),
+        ...(role !== undefined ? { role } : {}),
+        ...(subscriptionTier !== undefined ? { subscriptionTier } : {}),
+        ...(subscriptionStatus !== undefined ? { subscriptionStatus } : {}),
+        ...(emailVerified !== undefined ? { emailVerified: Boolean(emailVerified) } : {}),
+        ...(preferences !== undefined ? { preferences } : {}),
         updatedAt: new Date(),
       })
       .where(eq(user.id, userId))
