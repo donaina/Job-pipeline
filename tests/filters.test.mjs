@@ -15,6 +15,12 @@ test("countries on your list are accepted, abbreviations included", () => {
     "UK",
     "Remote - USA",
     "Singapore",
+    "Toronto, Canada",
+    "Vancouver (BC), Canada",
+    "Ontario, Canada",
+    "Remote (Canada)",
+    "Montreal, Quebec",
+    "Calgary, Alberta",
   ]) {
     assert.equal(isLocationEligible(place).ok, true, place);
   }
