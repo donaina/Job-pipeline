@@ -77,6 +77,7 @@ const SOURCES = [
   { name: "Ashby", type: "Company ATS", status: "Active" },
   { name: "BambooHR", type: "Company ATS", status: "Active" },
   { name: "Seek", type: "RSS Feed", status: "Active" },
+  { name: "Canada Job Bank", type: "Gov Job Portal", status: "Active" },
 ];
 
 export default function AdminPage() {
@@ -211,7 +212,7 @@ export default function AdminPage() {
 
   async function triggerScrape() {
     setScraping(true);
-    setScrapeFeedback("Initiating scrape across 9 sources in background...");
+    setScrapeFeedback("Initiating scrape across 10 sources in background...");
     try {
       const res = await fetch("/api/admin/scrape", { method: "POST" });
       const data = await parseSafeJson(res);
@@ -498,7 +499,7 @@ export default function AdminPage() {
             disabled={scraping}
             className="actionBtn primary"
           >
-            {scraping ? "Crawling 9 Sources..." : "⚡ Run Scraper Now"}
+            {scraping ? "Crawling 10 Sources..." : "⚡ Run Scraper Now"}
           </button>
         </div>
       </div>
@@ -691,7 +692,7 @@ export default function AdminPage() {
       {/* Scraper Sources Status */}
       <div>
         <h2 style={{ fontSize: 18, color: "var(--navy)", margin: "0 0 14px" }}>
-          Configured Remote Ingestion Sources (9 Services)
+          Configured Remote Ingestion Sources (10 Platforms)
         </h2>
         <div
           style={{
