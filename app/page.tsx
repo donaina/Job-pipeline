@@ -65,6 +65,7 @@ interface JobMatch {
     salaryEst?: string;
     applyUrl?: string;
     source: string;
+    tags?: string[];
   };
   bestResume?: {
     id: string;
@@ -83,6 +84,91 @@ const STATUS_OPTIONS = [
   { value: "REJECTED", label: "Rejected" },
 ];
 
+function matchLocationRegion(location: string, region: string, tags?: string[]): boolean {
+  const loc = (location || "").toLowerCase();
+  const isWorldwideTagged =
+    tags?.includes("Worldwide Remote") ||
+    /worldwide|anywhere|global|distributed/i.test(loc);
+
+  switch (region) {
+    case "worldwide":
+      return isWorldwideTagged || loc === "remote" || loc === "";
+    case "us":
+      return /united states|usa|\bus\b|u\.s\.|america|california|san francisco|new york|seattle|austin|texas|chicago|los angeles|boston|remote - us|us - remote/i.test(
+        loc
+      );
+    case "europe_uk":
+      return /united kingdom|\buk\b|london|germany|berlin|munich|france|paris|netherlands|amsterdam|spain|madrid|barcelona|europe|ireland|dublin|poland|sweden|switzerland/i.test(
+        loc
+      );
+    case "canada":
+      return /canada|toronto|vancouver|ontario|montreal|quebec|alberta/i.test(loc);
+    case "apac":
+      return /singapore|japan|tokyo|australia|sydney|melbourne|south korea|seoul|india|bengaluru|bangalore|apac|asia/i.test(
+        loc
+      );
+    case "latam":
+      return /mexico|brazil|latam|argentina|colombia|latin america/i.test(loc);
+    default:
+      if (region.startsWith("exact:")) {
+        const target = region.slice(6).toLowerCase();
+        return loc.includes(target);
+      }
+      return loc.includes(region.toLowerCase());
+  }
+}
+
+function matchJobType(job: JobMatch["job"], type: string): boolean {
+  const isWorldwideJob =
+    job.tags?.includes("Worldwide Remote") ||
+    /worldwide|anywhere|global/i.test(job.location || "");
+  const isRegionJob =
+    job.tags?.includes("Region-Specific Remote") ||
+    (!isWorldwideJob && (job.location || "").trim() !== "" && (job.location || "").toLowerCase() !== "remote");
+
+  const titleAndDesc = `${job.title} ${job.description || ""}`.toLowerCase();
+  const isContract = /(contract|freelance|contractor|temp)/i.test(titleAndDesc);
+  const isFullTime = /(full[- ]?time)/i.test(titleAndDesc);
+
+  switch (type) {
+    case "worldwide_remote":
+      return isWorldwideJob;
+    case "region_remote":
+      return isRegionJob;
+    case "full_time":
+      return isFullTime;
+    case "contract":
+      return isContract;
+    default:
+      return true;
+  }
+}
+
+function matchResumeSlot(bestResume: JobMatch["bestResume"], slot: string): boolean {
+  if (slot === "ALL") return true;
+  return String(bestResume?.slotNumber) === slot;
+}
+
+function matchSearch(item: JobMatch, query: string): boolean {
+  if (!query.trim()) return true;
+  const q = query.toLowerCase().trim();
+  const title = (item.job.title || "").toLowerCase();
+  const company = (item.job.company || "").toLowerCase();
+  const loc = (item.job.location || "").toLowerCase();
+  const cvLabel = (item.bestResume?.label || "").toLowerCase();
+  const reasoning = (item.match.gapAnalysis?.summaryReasoning || "").toLowerCase();
+  const tags = (item.job.tags || []).join(" ").toLowerCase();
+
+  return (
+    title.includes(q) ||
+    company.includes(q) ||
+    loc.includes(q) ||
+    cvLabel.includes(q) ||
+    reasoning.includes(q) ||
+    tags.includes(q)
+  );
+}
+
 export default function Dashboard() {
   const { data: session, isPending } = useSession();
   const router = useRouter();
@@ -90,6 +176,11 @@ export default function Dashboard() {
   const [matches, setMatches] = useState<JobMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [locationFilter, setLocationFilter] = useState("ALL");
+  const [typeFilter, setTypeFilter] = useState("ALL");
+  const [resumeFilter, setResumeFilter] = useState("ALL");
+
   const [selectedMatch, setSelectedMatch] = useState<JobMatch | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [preparingInterview, setPreparingInterview] = useState(false);
@@ -113,15 +204,14 @@ export default function Dashboard() {
       // Only show full loading placeholder on initial empty load to preserve scroll position
       loadMatches(matches.length === 0);
     }
-  }, [userId, isPending, activeTab]);
+  }, [userId, isPending]);
 
   async function loadMatches(showLoading = false) {
     try {
       if (showLoading) {
         setLoading(true);
       }
-      const url = activeTab === "ALL" ? "/api/matches" : `/api/matches?status=${activeTab}`;
-      const res = await fetch(url);
+      const res = await fetch("/api/matches");
       const data = await res.json();
       if (data.matches) {
         setMatches(data.matches);
@@ -334,6 +424,146 @@ export default function Dashboard() {
     };
   }, [matches]);
 
+  const statusCounts = useMemo(() => {
+    const baseFiltered = matches.filter((item) => {
+      if (locationFilter !== "ALL" && !matchLocationRegion(item.job.location || "", locationFilter, item.job.tags)) {
+        return false;
+      }
+      if (typeFilter !== "ALL" && !matchJobType(item.job, typeFilter)) {
+        return false;
+      }
+      if (resumeFilter !== "ALL" && !matchResumeSlot(item.bestResume, resumeFilter)) {
+        return false;
+      }
+      if (!matchSearch(item, searchQuery)) {
+        return false;
+      }
+      return true;
+    });
+
+    const counts: Record<string, number> = {
+      ALL: baseFiltered.length,
+      NEW: 0,
+      SAVED: 0,
+      APPLIED: 0,
+      INTERVIEW: 0,
+      REJECTED: 0,
+    };
+
+    for (const m of baseFiltered) {
+      const st = m.match.status;
+      if (counts[st] !== undefined) {
+        counts[st] = (counts[st] || 0) + 1;
+      }
+    }
+
+    return counts;
+  }, [matches, locationFilter, typeFilter, resumeFilter, searchQuery]);
+
+  const dynamicLocations = useMemo(() => {
+    const locSet = new Set<string>();
+    for (const m of matches) {
+      const loc = m.job.location?.trim();
+      if (loc && loc.toLowerCase() !== "remote" && loc.toLowerCase() !== "worldwide") {
+        locSet.add(loc);
+      }
+    }
+    return Array.from(locSet).slice(0, 25).sort();
+  }, [matches]);
+
+  const resumeOptions = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const m of matches) {
+      if (m.bestResume?.slotNumber) {
+        map.set(m.bestResume.slotNumber, m.bestResume.label);
+      }
+    }
+    return Array.from(map.entries())
+      .map(([slotNumber, label]) => ({ slotNumber, label }))
+      .sort((a, b) => a.slotNumber - b.slotNumber);
+  }, [matches]);
+
+  const locationFilterLabel = useMemo(() => {
+    switch (locationFilter) {
+      case "worldwide":
+        return "Worldwide / Anywhere";
+      case "us":
+        return "United States / North America";
+      case "europe_uk":
+        return "Europe & UK";
+      case "canada":
+        return "Canada";
+      case "apac":
+        return "Asia-Pacific";
+      case "latam":
+        return "Latin America";
+      default:
+        if (locationFilter.startsWith("exact:")) {
+          return locationFilter.slice(6);
+        }
+        return locationFilter;
+    }
+  }, [locationFilter]);
+
+  const typeFilterLabel = useMemo(() => {
+    switch (typeFilter) {
+      case "worldwide_remote":
+        return "Worldwide Remote";
+      case "region_remote":
+        return "Region-Specific Remote";
+      case "full_time":
+        return "Full-Time";
+      case "contract":
+        return "Contract / Freelance";
+      default:
+        return typeFilter;
+    }
+  }, [typeFilter]);
+
+  const resumeFilterLabel = useMemo(() => {
+    const opt = resumeOptions.find((r) => String(r.slotNumber) === resumeFilter);
+    return opt ? `Slot ${opt.slotNumber}: ${opt.label}` : `Slot ${resumeFilter}`;
+  }, [resumeFilter, resumeOptions]);
+
+  const hasActiveFilters =
+    locationFilter !== "ALL" ||
+    typeFilter !== "ALL" ||
+    resumeFilter !== "ALL" ||
+    searchQuery.trim().length > 0;
+
+  function resetFilters() {
+    setLocationFilter("ALL");
+    setTypeFilter("ALL");
+    setResumeFilter("ALL");
+    setSearchQuery("");
+  }
+
+  const filteredMatches = useMemo(() => {
+    return matches.filter((item) => {
+      // 1. Status Filter
+      if (activeTab !== "ALL" && item.match.status !== activeTab) {
+        return false;
+      }
+      // 2. Location Filter
+      if (locationFilter !== "ALL" && !matchLocationRegion(item.job.location || "", locationFilter, item.job.tags)) {
+        return false;
+      }
+      // 3. Job Type Filter
+      if (typeFilter !== "ALL" && !matchJobType(item.job, typeFilter)) {
+        return false;
+      }
+      // 4. Resume Slot Filter
+      if (resumeFilter !== "ALL" && !matchResumeSlot(item.bestResume, resumeFilter)) {
+        return false;
+      }
+      // 5. Search Query
+      if (!matchSearch(item, searchQuery)) {
+        return false;
+      }
+      return true;
+    });
+  }, [matches, activeTab, locationFilter, typeFilter, resumeFilter, searchQuery]);
+
   if (isPending) {
     return <div className="wrap" style={{ textAlign: "center", paddingTop: 100 }}>Loading session...</div>;
   }
@@ -513,15 +743,278 @@ export default function Dashboard() {
 
       {/* Filter Tabs */}
       <div className="tabs">
-        {STATUS_OPTIONS.map((tab) => (
-          <button
-            key={tab.value}
-            className={`tab ${activeTab === tab.value ? "active" : ""}`}
-            onClick={() => setActiveTab(tab.value)}
-          >
-            {tab.label}
-          </button>
-        ))}
+        {STATUS_OPTIONS.map((tab) => {
+          const count = statusCounts[tab.value] ?? 0;
+          return (
+            <button
+              key={tab.value}
+              className={`tab ${activeTab === tab.value ? "active" : ""}`}
+              onClick={() => setActiveTab(tab.value)}
+            >
+              {tab.label}
+              <span
+                style={{
+                  marginLeft: 6,
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  padding: "1px 6px",
+                  borderRadius: 10,
+                  background: activeTab === tab.value ? "var(--navy)" : "#e2e8f0",
+                  color: activeTab === tab.value ? "#ffffff" : "#475569",
+                }}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Multi-Filter Bar */}
+      <div
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          padding: "14px 18px",
+          marginTop: 20,
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+        }}
+      >
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          {/* Keyword Search */}
+          <div style={{ position: "relative", flex: "1 1 240px", minWidth: 200 }}>
+            <span
+              style={{
+                position: "absolute",
+                left: 10,
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "var(--text-faint)",
+                fontSize: 13,
+                pointerEvents: "none",
+              }}
+            >
+              🔍
+            </span>
+            <input
+              type="text"
+              placeholder="Filter by title, company, or keyword..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "8px 10px 8px 32px",
+                borderRadius: 8,
+                border: "1px solid var(--border)",
+                fontSize: 13,
+                outline: "none",
+                background: "#faf9f6",
+                color: "var(--text)",
+              }}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                style={{
+                  position: "absolute",
+                  right: 8,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  fontSize: 16,
+                  color: "var(--text-faint)",
+                  cursor: "pointer",
+                  padding: "0 4px",
+                }}
+              >
+                &times;
+              </button>
+            )}
+          </div>
+
+          {/* Location Dropdown */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "0 1 auto" }}>
+            <label
+              style={{
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: "var(--navy)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              📍 Location:
+            </label>
+            <select
+              value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}
+              style={{
+                padding: "7px 10px",
+                borderRadius: 8,
+                border: "1px solid",
+                borderColor: locationFilter !== "ALL" ? "#93c5fd" : "var(--border)",
+                background: locationFilter !== "ALL" ? "#eff6ff" : "#fff",
+                color: locationFilter !== "ALL" ? "#1e40af" : "var(--text)",
+                fontWeight: locationFilter !== "ALL" ? 600 : 400,
+                fontSize: 13,
+                cursor: "pointer",
+                outline: "none",
+              }}
+            >
+              <option value="ALL">All Locations</option>
+              <optgroup label="Regions">
+                <option value="worldwide">🌍 Worldwide / Anywhere</option>
+                <option value="us">🇺🇸 United States / North America</option>
+                <option value="europe_uk">🇬🇧 Europe & UK</option>
+                <option value="canada">🇨🇦 Canada</option>
+                <option value="apac">🌏 Asia-Pacific (APAC)</option>
+                <option value="latam">🌎 Latin America</option>
+              </optgroup>
+              {dynamicLocations.length > 0 && (
+                <optgroup label="Specific Locations in Matches">
+                  {dynamicLocations.map((loc) => (
+                    <option key={loc} value={`exact:${loc}`}>
+                      {loc}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          </div>
+
+          {/* Job Type Dropdown */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "0 1 auto" }}>
+            <label
+              style={{
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: "var(--navy)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              💼 Job Type:
+            </label>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              style={{
+                padding: "7px 10px",
+                borderRadius: 8,
+                border: "1px solid",
+                borderColor: typeFilter !== "ALL" ? "#c4b5fd" : "var(--border)",
+                background: typeFilter !== "ALL" ? "#f5f3ff" : "#fff",
+                color: typeFilter !== "ALL" ? "#5b21b6" : "var(--text)",
+                fontWeight: typeFilter !== "ALL" ? 600 : 400,
+                fontSize: 13,
+                cursor: "pointer",
+                outline: "none",
+              }}
+            >
+              <option value="ALL">All Job Types</option>
+              <option value="worldwide_remote">🌍 Worldwide Remote</option>
+              <option value="region_remote">📍 Region-Specific Remote</option>
+              <option value="full_time">⏱️ Full-Time</option>
+              <option value="contract">📑 Contract / Freelance</option>
+            </select>
+          </div>
+
+          {/* CV Track Dropdown */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "0 1 auto" }}>
+            <label
+              style={{
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: "var(--navy)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              📄 CV:
+            </label>
+            <select
+              value={resumeFilter}
+              onChange={(e) => setResumeFilter(e.target.value)}
+              style={{
+                padding: "7px 10px",
+                borderRadius: 8,
+                border: "1px solid",
+                borderColor: resumeFilter !== "ALL" ? "#fcd34d" : "var(--border)",
+                background: resumeFilter !== "ALL" ? "#fef3c7" : "#fff",
+                color: resumeFilter !== "ALL" ? "#92400e" : "var(--text)",
+                fontWeight: resumeFilter !== "ALL" ? 600 : 400,
+                fontSize: 13,
+                cursor: "pointer",
+                outline: "none",
+              }}
+            >
+              <option value="ALL">All Resumes</option>
+              {resumeOptions.map((resOpt) => (
+                <option key={resOpt.slotNumber} value={String(resOpt.slotNumber)}>
+                  Slot {resOpt.slotNumber}: {resOpt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Active Filters Summary & Chips */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 8,
+            paddingTop: hasActiveFilters ? 10 : 0,
+            borderTop: hasActiveFilters ? "1px solid #f1ede6" : "none",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 500 }}>
+              Showing <strong>{filteredMatches.length}</strong> of <strong>{matches.length}</strong> matches
+            </span>
+
+            {locationFilter !== "ALL" && (
+              <span className="filterChip" onClick={() => setLocationFilter("ALL")}>
+                📍 {locationFilterLabel} &times;
+              </span>
+            )}
+            {typeFilter !== "ALL" && (
+              <span className="filterChip" onClick={() => setTypeFilter("ALL")}>
+                💼 {typeFilterLabel} &times;
+              </span>
+            )}
+            {resumeFilter !== "ALL" && (
+              <span className="filterChip" onClick={() => setResumeFilter("ALL")}>
+                📄 {resumeFilterLabel} &times;
+              </span>
+            )}
+            {searchQuery.trim() && (
+              <span className="filterChip" onClick={() => setSearchQuery("")}>
+                🔍 &ldquo;{searchQuery.trim()}&rdquo; &times;
+              </span>
+            )}
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              onClick={resetFilters}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--status-rejected)",
+                fontSize: 12.5,
+                fontWeight: 600,
+                cursor: "pointer",
+                padding: "2px 6px",
+              }}
+            >
+              Reset Filters
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Matches List */}
@@ -539,10 +1032,29 @@ export default function Dashboard() {
               </Link>
             </div>
           </div>
+        ) : filteredMatches.length === 0 ? (
+          <div style={{ padding: "48px 20px", textAlign: "center", color: "var(--text-muted)" }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
+            <div style={{ fontWeight: 600, color: "var(--navy)", fontSize: 16 }}>
+              No job matches found
+            </div>
+            <p style={{ fontSize: 13.5, marginTop: 4, marginBottom: 16, color: "var(--text-muted)" }}>
+              No matches meet your selected filter criteria. Try broadening your location or job type.
+            </p>
+            <button onClick={resetFilters} className="actionBtn primary" style={{ fontSize: 13 }}>
+              Reset All Filters
+            </button>
+          </div>
         ) : (
-          matches.map((item) => {
+          filteredMatches.map((item) => {
             const { match, job, bestResume } = item;
             const score = Math.round(match.matchScore);
+            const isWorldwide =
+              job.tags?.includes("Worldwide Remote") ||
+              /worldwide|anywhere|global/i.test(job.location || "");
+            const isContract = /(contract|freelance|contractor|temp)/i.test(
+              `${job.title} ${job.description || ""}`
+            );
             return (
               <div key={match.id} className="jobRow">
                 <div className="jobMain">
@@ -581,9 +1093,35 @@ export default function Dashboard() {
                     </a>
                   </h3>
 
-                  <div className="jobCompany">
+                  <div className="jobCompany" style={{ alignItems: "center" }}>
                     <span className="company">{job.company}</span>
-                    <span className="location">{job.location || "Remote"}</span>
+                    <span className="location">📍 {job.location || "Remote"}</span>
+                    <span
+                      style={{
+                        fontSize: 11.5,
+                        padding: "2px 8px",
+                        borderRadius: 4,
+                        background: isWorldwide ? "#dcfce7" : "#f1f5f9",
+                        color: isWorldwide ? "#166534" : "#475569",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {isWorldwide ? "🌍 Worldwide Remote" : "🌐 Region Remote"}
+                    </span>
+                    {isContract && (
+                      <span
+                        style={{
+                          fontSize: 11.5,
+                          padding: "2px 8px",
+                          borderRadius: 4,
+                          background: "#fef3c7",
+                          color: "#92400e",
+                          fontWeight: 600,
+                        }}
+                      >
+                        📑 Contract
+                      </span>
+                    )}
                     {job.salaryEst && (
                       <span style={{ color: "var(--status-applied)", fontWeight: 500 }}>
                         {job.salaryEst}
