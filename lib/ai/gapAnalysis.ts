@@ -1,4 +1,4 @@
-import { ai } from "./gemini";
+import { generateContentWithFallback } from "./gemini";
 import { ParsedResume } from "./parseResume";
 
 export interface GapAnalysisResult {
@@ -58,9 +58,9 @@ EVALUATION GOALS:
    - keywordsToIntegrate: 3-6 exact keyword phrases that an ATS scanner or hiring team will search for.
 `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3.5-flash",
+  const response = await generateContentWithFallback({
     contents: prompt,
+    preferredModel: "gemini-3.5-flash-lite",
     config: {
       responseMimeType: "application/json",
       responseSchema: {
