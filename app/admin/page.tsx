@@ -231,7 +231,7 @@ export default function AdminPage() {
             Manage platform users, subscription tiers, and job crawler pipelines.
           </p>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div className="headActions">
           <Link href="/" className="actionBtn" style={{ textDecoration: "none" }}>
             &larr; User Dashboard
           </Link>
@@ -265,7 +265,7 @@ export default function AdminPage() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(180px, 100%), 1fr))",
           gap: 16,
           marginBottom: 32,
         }}
@@ -317,89 +317,91 @@ export default function AdminPage() {
           User Accounts & Subscription Management
         </h2>
         <div className="panel">
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
-            <thead>
-              <tr style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
-                <th style={{ padding: "12px 16px" }}>User</th>
-                <th style={{ padding: "12px 16px" }}>Tier</th>
-                <th style={{ padding: "12px 16px" }}>Role</th>
-                <th style={{ padding: "12px 16px" }}>Joined</th>
-                <th style={{ padding: "12px 16px", textAlign: "right" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => {
-                const isPro = u.subscriptionTier === "pro";
-                const isAdmin = u.role === "admin";
-                const isUpdating = updatingUser === u.id;
+          <div className="tableResponsive">
+            <table style={{ width: "100%", minWidth: 600, borderCollapse: "collapse", fontSize: 13.5 }}>
+              <thead>
+                <tr style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
+                  <th style={{ padding: "12px 16px" }}>User</th>
+                  <th style={{ padding: "12px 16px" }}>Tier</th>
+                  <th style={{ padding: "12px 16px" }}>Role</th>
+                  <th style={{ padding: "12px 16px" }}>Joined</th>
+                  <th style={{ padding: "12px 16px", textAlign: "right" }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u) => {
+                  const isPro = u.subscriptionTier === "pro";
+                  const isAdmin = u.role === "admin";
+                  const isUpdating = updatingUser === u.id;
 
-                return (
-                  <tr key={u.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                    <td style={{ padding: "14px 16px" }}>
-                      <div style={{ fontWeight: 600, color: "var(--text)" }}>{u.name}</div>
-                      <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{u.email}</div>
-                    </td>
-                    <td style={{ padding: "14px 16px" }}>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          padding: "2px 8px",
-                          borderRadius: 12,
-                          background: isPro ? "#dbeafe" : "#f1f5f9",
-                          color: isPro ? "#1d4ed8" : "#475569",
-                          textTransform: "uppercase",
-                        }}
-                      >
-                        {u.subscriptionTier}
-                      </span>
-                    </td>
-                    <td style={{ padding: "14px 16px" }}>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          padding: "2px 8px",
-                          borderRadius: 12,
-                          background: isAdmin ? "#fef3c7" : "#f8fafc",
-                          color: isAdmin ? "#92400e" : "#64748b",
-                        }}
-                      >
-                        {u.role}
-                      </span>
-                    </td>
-                    <td style={{ padding: "14px 16px", color: "var(--text-muted)", fontSize: 12.5 }}>
-                      {new Date(u.createdAt).toLocaleDateString()}
-                    </td>
-                    <td style={{ padding: "14px 16px", textAlign: "right" }}>
-                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                        <button
-                          onClick={() => updateUserPlan(u.id, isPro ? "free" : "pro")}
-                          disabled={isUpdating}
-                          className="chip"
+                  return (
+                    <tr key={u.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td style={{ padding: "14px 16px" }}>
+                        <div style={{ fontWeight: 600, color: "var(--text)" }}>{u.name}</div>
+                        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{u.email}</div>
+                      </td>
+                      <td style={{ padding: "14px 16px" }}>
+                        <span
                           style={{
-                            cursor: "pointer",
-                            background: isPro ? "#fff" : "#eff6ff",
-                            color: isPro ? "var(--text-muted)" : "#1d4ed8",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            padding: "2px 8px",
+                            borderRadius: 12,
+                            background: isPro ? "#dbeafe" : "#f1f5f9",
+                            color: isPro ? "#1d4ed8" : "#475569",
+                            textTransform: "uppercase",
                           }}
                         >
-                          {isPro ? "Downgrade to Free" : "Upgrade to Pro"}
-                        </button>
-                        <button
-                          onClick={() => updateUserRole(u.id, isAdmin ? "user" : "admin")}
-                          disabled={isUpdating}
-                          className="chip"
-                          style={{ cursor: "pointer" }}
+                          {u.subscriptionTier}
+                        </span>
+                      </td>
+                      <td style={{ padding: "14px 16px" }}>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            padding: "2px 8px",
+                            borderRadius: 12,
+                            background: isAdmin ? "#fef3c7" : "#f8fafc",
+                            color: isAdmin ? "#92400e" : "#64748b",
+                          }}
                         >
-                          {isAdmin ? "Remove Admin" : "Make Admin"}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                          {u.role}
+                        </span>
+                      </td>
+                      <td style={{ padding: "14px 16px", color: "var(--text-muted)", fontSize: 12.5 }}>
+                        {new Date(u.createdAt).toLocaleDateString()}
+                      </td>
+                      <td style={{ padding: "14px 16px", textAlign: "right" }}>
+                        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                          <button
+                            onClick={() => updateUserPlan(u.id, isPro ? "free" : "pro")}
+                            disabled={isUpdating}
+                            className="chip"
+                            style={{
+                              cursor: "pointer",
+                              background: isPro ? "#fff" : "#eff6ff",
+                              color: isPro ? "var(--text-muted)" : "#1d4ed8",
+                            }}
+                          >
+                            {isPro ? "Downgrade to Free" : "Upgrade to Pro"}
+                          </button>
+                          <button
+                            onClick={() => updateUserRole(u.id, isAdmin ? "user" : "admin")}
+                            disabled={isUpdating}
+                            className="chip"
+                            style={{ cursor: "pointer" }}
+                          >
+                            {isAdmin ? "Remove Admin" : "Make Admin"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -411,7 +413,7 @@ export default function AdminPage() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))",
             gap: 12,
           }}
         >
