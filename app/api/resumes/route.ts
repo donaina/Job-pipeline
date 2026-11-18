@@ -184,18 +184,15 @@ export async function POST(req: NextRequest) {
       console.warn("[resumes] Initial ingest check warning:", ingestErr);
     }
 
-    // Automatically trigger immediate matching for this user
-    let matchResult = { matched: 0 };
-    try {
-      matchResult = await matchJobsForUser(session.user.id);
-    } catch (matchErr) {
-      console.warn("[resumes] Immediate matching warning:", matchErr);
-    }
+    // Automatically trigger immediate matching for this user in background
+    // so the resume upload response returns promptly without hitting gateway timeouts
+    matchJobsForUser(session.user.id).catch((matchErr) => {
+      console.warn("[resumes] Background matching warning:", matchErr);
+    });
 
     return NextResponse.json({
       success: true,
       resume: savedResume,
-      matched: matchResult.matched,
     });
   } catch (error: any) {
     console.error("Failed to save resume:", error);

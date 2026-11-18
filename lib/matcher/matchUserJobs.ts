@@ -15,15 +15,23 @@ const KNOWN_TECH_KEYWORDS = [
   "fintech", "payments", "ledger", "banking", "api"
 ];
 
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\\/]/g, "\\$&");
+}
+
+function containsWordOrSymbol(text: string, term: string): boolean {
+  if (!text || !term) return false;
+  const escaped = escapeRegex(term);
+  const regex = new RegExp(`(?:^|[^a-z0-9_])${escaped}(?:$|[^a-z0-9_])`, "i");
+  return regex.test(text);
+}
+
 function extractFallbackSkills(rawText: string): string[] {
   const textLower = rawText.toLowerCase();
   const found: string[] = [];
   for (const kw of KNOWN_TECH_KEYWORDS) {
-    if (kw.length <= 3) {
-      const regex = new RegExp(`\\b${kw}\\b`, "i");
-      if (regex.test(textLower)) found.push(kw);
-    } else {
-      if (textLower.includes(kw)) found.push(kw);
+    if (containsWordOrSymbol(textLower, kw)) {
+      found.push(kw);
     }
   }
   return found;
@@ -73,12 +81,8 @@ function computeJobScore(
   // 2. Tech Stack & Skills Overlap (up to 40 points)
   let skillHits = 0;
   for (const skill of resume.skills) {
-    const sLower = skill.toLowerCase();
-    if (sLower.length <= 3) {
-      const regex = new RegExp(`\\b${sLower}\\b`, "i");
-      if (regex.test(jobContent)) skillHits++;
-    } else {
-      if (jobContent.includes(sLower)) skillHits++;
+    if (containsWordOrSymbol(jobContent, skill)) {
+      skillHits++;
     }
   }
 
