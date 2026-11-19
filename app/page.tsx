@@ -118,19 +118,64 @@ function matchLocationRegion(location: string, region: string, tags?: string[]):
   }
 }
 
+function getWorkplaceType(job: JobMatch["job"]): "remote" | "hybrid" | "onsite" {
+  if (job.remoteType === "hybrid" || job.tags?.includes("Hybrid")) {
+    return "hybrid";
+  }
+  if (job.remoteType === "onsite" || job.tags?.includes("On-site")) {
+    return "onsite";
+  }
+
+  const combined = `${job.location || ""} ${job.title} ${job.description || ""}`.toLowerCase();
+  const tagsStr = (job.tags || []).join(" ").toLowerCase();
+
+  if (tagsStr.includes("hybrid") || combined.includes("hybrid")) {
+    return "hybrid";
+  }
+
+  if (
+    tagsStr.includes("on-site") ||
+    tagsStr.includes("onsite") ||
+    /(on[- ]?site|in[- ]?office|office based)/i.test(combined)
+  ) {
+    return "onsite";
+  }
+
+  if (
+    job.remoteType === "remote" ||
+    tagsStr.includes("remote") ||
+    tagsStr.includes("worldwide remote") ||
+    tagsStr.includes("region-specific remote") ||
+    /(remote|worldwide|anywhere|telework|work from home)/i.test(combined)
+  ) {
+    return "remote";
+  }
+
+  if (job.location && job.location.trim() !== "" && job.location.toLowerCase() !== "remote") {
+    return "onsite";
+  }
+
+  return "remote";
+}
+
 function matchJobType(job: JobMatch["job"], type: string): boolean {
+  const workplace = getWorkplaceType(job);
   const isWorldwideJob =
     job.tags?.includes("Worldwide Remote") ||
     /worldwide|anywhere|global/i.test(job.location || "");
-  const isRegionJob =
-    job.tags?.includes("Region-Specific Remote") ||
-    (!isWorldwideJob && (job.location || "").trim() !== "" && (job.location || "").toLowerCase() !== "remote");
+  const isRegionJob = workplace === "remote" && !isWorldwideJob;
 
   const titleAndDesc = `${job.title} ${job.description || ""}`.toLowerCase();
   const isContract = /(contract|freelance|contractor|temp)/i.test(titleAndDesc);
   const isFullTime = /(full[- ]?time)/i.test(titleAndDesc);
 
   switch (type) {
+    case "remote":
+      return workplace === "remote";
+    case "hybrid":
+      return workplace === "hybrid";
+    case "onsite":
+      return workplace === "onsite";
     case "worldwide_remote":
       return isWorldwideJob;
     case "region_remote":
@@ -507,6 +552,12 @@ export default function Dashboard() {
 
   const typeFilterLabel = useMemo(() => {
     switch (typeFilter) {
+      case "remote":
+        return "Remote Roles";
+      case "hybrid":
+        return "Hybrid Roles";
+      case "onsite":
+        return "On-site Roles";
       case "worldwide_remote":
         return "Worldwide Remote";
       case "region_remote":
@@ -843,6 +894,10 @@ export default function Dashboard() {
               onChange={(e) => setLocationFilter(e.target.value)}
               className="filterSelect"
               style={{
+                maxWidth: 195,
+                width: "100%",
+                textOverflow: "ellipsis",
+                overflow: "hidden",
                 borderColor: locationFilter !== "ALL" ? "#93c5fd" : "var(--border)",
                 background: locationFilter !== "ALL" ? "#eff6ff" : "#fff",
                 color: locationFilter !== "ALL" ? "#1e40af" : "var(--text)",
@@ -851,20 +906,23 @@ export default function Dashboard() {
             >
               <option value="ALL">All Locations</option>
               <optgroup label="Regions">
-                <option value="worldwide">🌍 Worldwide / Anywhere</option>
-                <option value="us">🇺🇸 United States / North America</option>
+                <option value="worldwide">🌍 Worldwide</option>
+                <option value="us">🇺🇸 United States</option>
                 <option value="europe_uk">🇬🇧 Europe & UK</option>
                 <option value="canada">🇨🇦 Canada</option>
-                <option value="apac">🌏 Asia-Pacific (APAC)</option>
+                <option value="apac">🌏 Asia-Pacific</option>
                 <option value="latam">🌎 Latin America</option>
               </optgroup>
               {dynamicLocations.length > 0 && (
                 <optgroup label="Specific Locations in Matches">
-                  {dynamicLocations.map((loc) => (
-                    <option key={loc} value={`exact:${loc}`}>
-                      {loc}
-                    </option>
-                  ))}
+                  {dynamicLocations.map((loc) => {
+                    const displayLoc = loc.length > 25 ? `${loc.slice(0, 23)}...` : loc;
+                    return (
+                      <option key={loc} value={`exact:${loc}`} title={loc}>
+                        {displayLoc}
+                      </option>
+                    );
+                  })}
                 </optgroup>
               )}
             </select>
@@ -880,24 +938,35 @@ export default function Dashboard() {
                 whiteSpace: "nowrap",
               }}
             >
-              💼 Job Type:
+              💼 Type:
             </label>
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
               className="filterSelect"
               style={{
+                maxWidth: 195,
+                width: "100%",
+                textOverflow: "ellipsis",
+                overflow: "hidden",
                 borderColor: typeFilter !== "ALL" ? "#c4b5fd" : "var(--border)",
                 background: typeFilter !== "ALL" ? "#f5f3ff" : "#fff",
                 color: typeFilter !== "ALL" ? "#5b21b6" : "var(--text)",
                 fontWeight: typeFilter !== "ALL" ? 600 : 400,
               }}
             >
-              <option value="ALL">All Job Types</option>
-              <option value="worldwide_remote">🌍 Worldwide Remote</option>
-              <option value="region_remote">📍 Region-Specific Remote</option>
-              <option value="full_time">⏱️ Full-Time</option>
-              <option value="contract">📑 Contract / Freelance</option>
+              <option value="ALL">All Types & Arrangements</option>
+              <optgroup label="Workplace Arrangement">
+                <option value="remote">🌍 Remote (All)</option>
+                <option value="hybrid">🏢 Hybrid</option>
+                <option value="onsite">🏛️ On-site / In-Office</option>
+                <option value="worldwide_remote">🌐 Worldwide Remote</option>
+                <option value="region_remote">📍 Region-Specific Remote</option>
+              </optgroup>
+              <optgroup label="Employment Type">
+                <option value="full_time">⏱️ Full-Time</option>
+                <option value="contract">📑 Contract / Freelance</option>
+              </optgroup>
             </select>
           </div>
 
@@ -918,6 +987,10 @@ export default function Dashboard() {
               onChange={(e) => setResumeFilter(e.target.value)}
               className="filterSelect"
               style={{
+                maxWidth: 180,
+                width: "100%",
+                textOverflow: "ellipsis",
+                overflow: "hidden",
                 borderColor: resumeFilter !== "ALL" ? "#fcd34d" : "var(--border)",
                 background: resumeFilter !== "ALL" ? "#fef3c7" : "#fff",
                 color: resumeFilter !== "ALL" ? "#92400e" : "var(--text)",
@@ -925,11 +998,15 @@ export default function Dashboard() {
               }}
             >
               <option value="ALL">All Resumes</option>
-              {resumeOptions.map((resOpt) => (
-                <option key={resOpt.slotNumber} value={String(resOpt.slotNumber)}>
-                  Slot {resOpt.slotNumber}: {resOpt.label}
-                </option>
-              ))}
+              {resumeOptions.map((resOpt) => {
+                const labelDisplay =
+                  resOpt.label.length > 20 ? `${resOpt.label.slice(0, 18)}...` : resOpt.label;
+                return (
+                  <option key={resOpt.slotNumber} value={String(resOpt.slotNumber)} title={resOpt.label}>
+                    Slot {resOpt.slotNumber}: {labelDisplay}
+                  </option>
+                );
+              })}
             </select>
           </div>
         </div>
@@ -1024,6 +1101,7 @@ export default function Dashboard() {
           filteredMatches.map((item) => {
             const { match, job, bestResume } = item;
             const score = Math.round(match.matchScore);
+            const workplace = getWorkplaceType(job);
             const isWorldwide =
               job.tags?.includes("Worldwide Remote") ||
               /worldwide|anywhere|global/i.test(job.location || "");
@@ -1071,18 +1149,46 @@ export default function Dashboard() {
                   <div className="jobCompany" style={{ alignItems: "center" }}>
                     <span className="company">{job.company}</span>
                     <span className="location">📍 {job.location || "Remote"}</span>
-                    <span
-                      style={{
-                        fontSize: 11.5,
-                        padding: "2px 8px",
-                        borderRadius: 4,
-                        background: isWorldwide ? "#dcfce7" : "#f1f5f9",
-                        color: isWorldwide ? "#166534" : "#475569",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {isWorldwide ? "🌍 Worldwide Remote" : "🌐 Region Remote"}
-                    </span>
+                    {workplace === "hybrid" ? (
+                      <span
+                        style={{
+                          fontSize: 11.5,
+                          padding: "2px 8px",
+                          borderRadius: 4,
+                          background: "#f5f3ff",
+                          color: "#6b21a8",
+                          fontWeight: 600,
+                        }}
+                      >
+                        🏢 Hybrid
+                      </span>
+                    ) : workplace === "onsite" ? (
+                      <span
+                        style={{
+                          fontSize: 11.5,
+                          padding: "2px 8px",
+                          borderRadius: 4,
+                          background: "#f1f5f9",
+                          color: "#334155",
+                          fontWeight: 600,
+                        }}
+                      >
+                        🏛️ On-site
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          fontSize: 11.5,
+                          padding: "2px 8px",
+                          borderRadius: 4,
+                          background: isWorldwide ? "#dcfce7" : "#eff6ff",
+                          color: isWorldwide ? "#166534" : "#1d4ed8",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {isWorldwide ? "🌍 Worldwide Remote" : "🌐 Region Remote"}
+                      </span>
+                    )}
                     {isContract && (
                       <span
                         style={{
@@ -1218,9 +1324,41 @@ export default function Dashboard() {
                 <h2 style={{ margin: "8px 0 4px", fontSize: 22, color: "var(--navy)" }}>
                   {selectedMatch.job.title}
                 </h2>
-                <div style={{ fontSize: 14, color: "var(--text-muted)" }}>
-                  {selectedMatch.job.company} &bull; Matched CV:{" "}
-                  <strong>{selectedMatch.bestResume?.label || "General CV"}</strong>
+                <div style={{ fontSize: 13.5, color: "var(--text-muted)", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px 8px", marginTop: 4 }}>
+                  <span style={{ fontWeight: 600, color: "var(--navy)" }}>{selectedMatch.job.company}</span>
+                  <span>&bull;</span>
+                  <span>📍 {selectedMatch.job.location || "Remote"}</span>
+                  <span>&bull;</span>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      padding: "1px 6px",
+                      borderRadius: 4,
+                      background:
+                        getWorkplaceType(selectedMatch.job) === "hybrid"
+                          ? "#f5f3ff"
+                          : getWorkplaceType(selectedMatch.job) === "onsite"
+                          ? "#f1f5f9"
+                          : "#dcfce7",
+                      color:
+                        getWorkplaceType(selectedMatch.job) === "hybrid"
+                          ? "#6b21a8"
+                          : getWorkplaceType(selectedMatch.job) === "onsite"
+                          ? "#334155"
+                          : "#166534",
+                    }}
+                  >
+                    {getWorkplaceType(selectedMatch.job) === "hybrid"
+                      ? "🏢 Hybrid"
+                      : getWorkplaceType(selectedMatch.job) === "onsite"
+                      ? "🏛️ On-site"
+                      : "🌍 Remote"}
+                  </span>
+                  <span>&bull;</span>
+                  <span>
+                    Matched CV: <strong>{selectedMatch.bestResume?.label || "General CV"}</strong>
+                  </span>
                 </div>
               </div>
               <button

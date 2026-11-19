@@ -6,6 +6,7 @@ import {
   isRemoteJob,
   filterJobs,
   deduplicate,
+  detectWorkplaceType,
 } from "../lib/filters.js";
 
 test("countries on your list are accepted, abbreviations included", () => {
@@ -111,3 +112,31 @@ test("deduplicate removes known links, repeats and jobs with no link", () => {
     ["b", "c"],
   );
 });
+
+test("detectWorkplaceType classifies remote, hybrid, and onsite correctly", () => {
+  assert.equal(
+    detectWorkplaceType({ source: "himalayas", location: "United States" }),
+    "remote"
+  );
+  assert.equal(
+    detectWorkplaceType({ source: "jobbank", location: "Vancouver (BC), Canada", tags: ["On-site"] }),
+    "onsite"
+  );
+  assert.equal(
+    detectWorkplaceType({ source: "jobbank", location: "Beamsville (ON), Canada (Hybrid)", tags: ["Hybrid"] }),
+    "hybrid"
+  );
+  assert.equal(
+    detectWorkplaceType({ source: "greenhouse", location: "New York, NY", description: "Office presence required 5 days a week" }),
+    "onsite"
+  );
+  assert.equal(
+    detectWorkplaceType({ source: "greenhouse", location: "London, UK", description: "Hybrid policy: 2 days in office" }),
+    "hybrid"
+  );
+  assert.equal(
+    detectWorkplaceType({ source: "greenhouse", location: "Berlin, Germany", description: "This is a fully remote position" }),
+    "remote"
+  );
+});
+
