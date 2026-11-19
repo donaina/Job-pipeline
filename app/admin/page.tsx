@@ -412,7 +412,7 @@ export default function AdminPage() {
   async function handleSyncUserMatches() {
     if (!selectedUser) return;
     setSyncingUserMatches(true);
-    setSyncFeedback("Syncing matches with candidate resumes...");
+    setSyncFeedback("Syncing matches with candidate resumes against active jobs in database...");
 
     try {
       const res = await fetch(`/api/admin/users/${selectedUser.id}/sync`, {
@@ -424,9 +424,21 @@ export default function AdminPage() {
         throw new Error(data.error || "Failed to sync matches.");
       }
 
-      const matched = Number(data.matched || 0);
-      const total = Number(data.totalTop || 50);
-      setSyncFeedback(`🎯 Sync complete! ${matched} new/updated top matches calculated (Top ${total} active roles).`);
+      if (data.message) {
+        setSyncFeedback(`ℹ️ ${data.message}`);
+      } else {
+        const matched = Number(data.matched || 0);
+        const total = Number(data.totalTop || 50);
+        if (matched === 0) {
+          setSyncFeedback(
+            `✨ All matches are already up to date! Evaluated candidate CV against active database roles (Top ${total} positions). (Note: This scores against existing jobs in the database. To crawl brand-new postings from all 10 external platforms, use "⚡ Run Scraper Now" above).`
+          );
+        } else {
+          setSyncFeedback(
+            `🎯 Sync complete! ${matched} new or higher-scoring job matches added/updated (Top ${total} active roles).`
+          );
+        }
+      }
 
       // Refresh matches list
       await refreshUserResumesAndMatches(selectedUser.id);
@@ -1029,7 +1041,38 @@ export default function AdminPage() {
                     </div>
 
                     {syncFeedback && (
-                      <div style={{ padding: "8px 12px", borderRadius: 6, fontSize: 12.5, background: "#f0fdf4", color: "#166534", marginBottom: 16 }}>
+                      <div
+                        style={{
+                          padding: "9px 13px",
+                          borderRadius: 6,
+                          fontSize: 12.5,
+                          lineHeight: 1.45,
+                          background: syncFeedback.startsWith("❌")
+                            ? "#fef2f2"
+                            : syncFeedback.startsWith("ℹ️")
+                            ? "#fffbeb"
+                            : syncFeedback.startsWith("✨")
+                            ? "#f0f9ff"
+                            : "#f0fdf4",
+                          color: syncFeedback.startsWith("❌")
+                            ? "#991b1b"
+                            : syncFeedback.startsWith("ℹ️")
+                            ? "#92400e"
+                            : syncFeedback.startsWith("✨")
+                            ? "#075985"
+                            : "#166534",
+                          border: `1px solid ${
+                            syncFeedback.startsWith("❌")
+                              ? "#fecaca"
+                              : syncFeedback.startsWith("ℹ️")
+                              ? "#fde68a"
+                              : syncFeedback.startsWith("✨")
+                              ? "#bae6fd"
+                              : "#bbf7d0"
+                          }`,
+                          marginBottom: 16,
+                        }}
+                      >
                         {syncFeedback}
                       </div>
                     )}
@@ -1226,7 +1269,38 @@ export default function AdminPage() {
                     </div>
 
                     {syncFeedback && (
-                      <div style={{ padding: "8px 12px", borderRadius: 6, fontSize: 12.5, background: "#f0fdf4", color: "#166534", marginBottom: 14 }}>
+                      <div
+                        style={{
+                          padding: "9px 13px",
+                          borderRadius: 6,
+                          fontSize: 12.5,
+                          lineHeight: 1.45,
+                          background: syncFeedback.startsWith("❌")
+                            ? "#fef2f2"
+                            : syncFeedback.startsWith("ℹ️")
+                            ? "#fffbeb"
+                            : syncFeedback.startsWith("✨")
+                            ? "#f0f9ff"
+                            : "#f0fdf4",
+                          color: syncFeedback.startsWith("❌")
+                            ? "#991b1b"
+                            : syncFeedback.startsWith("ℹ️")
+                            ? "#92400e"
+                            : syncFeedback.startsWith("✨")
+                            ? "#075985"
+                            : "#166534",
+                          border: `1px solid ${
+                            syncFeedback.startsWith("❌")
+                              ? "#fecaca"
+                              : syncFeedback.startsWith("ℹ️")
+                              ? "#fde68a"
+                              : syncFeedback.startsWith("✨")
+                              ? "#bae6fd"
+                              : "#bbf7d0"
+                          }`,
+                          marginBottom: 14,
+                        }}
+                      >
                         {syncFeedback}
                       </div>
                     )}
