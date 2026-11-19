@@ -1,186 +1,281 @@
-# Job Pipeline
+# Job Pipeline 🚀
 
-A Next.js app that finds remote developer jobs every day, filters them by
-country, scores them against your three CVs, logs everything in a Google
-Sheet, and gives you a dashboard to approve and apply from. Built for Daniel
-Chimezie. Runs on your PC for testing and on a RackNerd VPS for the daily run.
+An autonomous, multi-tenant AI job discovery, vector matching, and application intelligence platform.
 
-## How it works
+Job Pipeline continuously aggregates job postings across 10 global platforms, parses candidates' CVs using Google Gemini AI, generates vector embeddings, scores alignment against active roles, and equips candidates with personalized interview preparation and tailored application kits.
+
+**Live Production URL:** [https://job-pipeline.eduvrse.co](https://job-pipeline.eduvrse.co)
+
+---
+
+## Architecture & System Flow
 
 ```
-cron (7am daily)  ->  POST /api/run
-                         |
-   1. lib/fetchers/      pull jobs from 9 sources
-   2. lib/filters.js     keep eligible countries, drop duplicates
-   3. lib/scorer.js      score each job, pick the right CV
-   4. lib/sheets.js      write the best new matches to the sheet
-   5. lib/emailApply.js  find application emails in descriptions
-   6. approvals          send email applications, queue the rest
-   7. lib/mailer.js      follow-up reminders and one daily digest
-
-Dashboard (app/page.js) reads and updates the same sheet.
+                                  ┌──────────────────────────────────────────────┐
+                                  │           10 Global Job Feeds                │
+                                  │  Canada Job Bank • Greenhouse • Lever • Ashby│
+                                  │  BambooHR • Himalayas • Seek • Remotive      │
+                                  │  WeWorkRemotely • RemoteOK                   │
+                                  └──────────────────────┬───────────────────────┘
+                                                         │
+                                               [Background Ingest / Cron]
+                                                         ▼
+                                          ┌──────────────────────────────┐
+                                          │   PostgreSQL (Drizzle ORM)   │
+                                          │     4,500+ Active Roles      │
+                                          └──────────────┬───────────────┘
+                                                         │
+  ┌─────────────────────────────────┐                    │
+  │        Candidate Resumes        │                    │
+  │  • Up to 3 CV slots per user    │                    ▼
+  │  • PDF Text Parsing (pdf-parse) │         ┌──────────────────────┐
+  │  • Gemini AI Skills Extraction  ├────────►│ AI Job Match Engine  │
+  │  • Gemini Text Embeddings (768) │         │ • Role alignment     │
+  └─────────────────────────────────┘         │ • Skill overlap      │
+                                              │ • Seniority weighting│
+                                              │ • Domain heuristics  │
+                                              │ • Vector similarity  │
+                                              └──────────┬───────────┘
+                                                         │
+                                                         ▼
+                                           ┌────────────────────────────┐
+                                           │    Candidate Dashboard     │
+                                           │  • Real-time multi-filter  │
+                                           │  • AI Interview Prep guide │
+                                           │  • One-click Apply Kit     │
+                                           │  • Workplace arrangements  │
+                                           └────────────────────────────┘
 ```
 
-## Your day
+---
 
-1. Open the dashboard. Jobs are sorted by match score.
-2. **Approve** a job you want. For an email job, your CV is sent at once
-   (after a confirmation that shows the address). For a web-form job, it moves
-   to Needs Manual Apply.
-3. Open **Apply kit** on a job to copy your details and saved answers and to
-   download the right CV. Open the application, fill it in, submit.
-4. Click **Mark Applied**. A follow-up reminder is set for 7 days later.
+## Key Features
 
-Jobs scoring at or above `AUTO_APPROVE_MIN_SCORE` skip step 2. Only email jobs
-are ever submitted for you; web forms are always submitted by you.
+### 1. 🤖 AI-Powered Resume Parsing & Matching
+- **Multi-Resume Support**: Candidates can upload up to 3 specialized CVs (e.g. Full-Stack Engineer, Product Manager, Operations Lead).
+- **Gemini AI Parsing**: Utilizes `gemini-2.5-flash` to extract candidate summary, target roles, core technical/soft skills, tools & frameworks, and career history.
+- **Vector Embeddings**: Generates semantic embeddings with Google's `text-embedding-004` model.
+- **Fine-Grained Scoring Engine**:
+  - Exact & fuzzy role title alignment (up to 38 points).
+  - Whole-word skill overlap evaluation (up to 32 points).
+  - Seniority matching (Lead, Senior, Staff, Director, Associate).
+  - Cross-industry domain heuristics (Fintech, Banking, Healthcare, Operations, etc.).
 
-## Project layout
+### 2. 🌐 10 Aggregated Job Feeds
+Crawls and normalizes roles across 10 top hiring platforms:
+1. **Canada Job Bank (`jobbank.gc.ca`)**: Canada's federal job registry with official telework tags (Remote, Hybrid, On-site).
+2. **Greenhouse**: Direct ATS board crawling across curated company registries.
+3. **Lever**: Direct ATS job board API ingestion.
+4. **Ashby**: Modern startup and tech ATS boards.
+5. **BambooHR**: Enterprise and growth company listings.
+6. **Himalayas**: High-growth remote tech opportunities.
+7. **Seek**: Australia and New Zealand opportunities.
+8. **Remotive**: Verified global tech jobs.
+9. **WeWorkRemotely**: Remote community listings.
+10. **RemoteOK**: Global digital nomad and remote roles.
 
-### Root
+### 3. 🎯 Intelligent Dashboard & Multi-Filter
+- **Real-Time Search**: Search instantly by company, job title, or keyword.
+- **Location Filter**: Capped and truncated select menu preventing overflow while preserving searchability.
+- **Workplace Arrangement Detection**:
+  - 🌍 Remote (All)
+  - 🏢 Hybrid
+  - 🏛️ On-site / In-Office
+  - 🌐 Worldwide Remote
+  - 📍 Region-Specific Remote
+- **Job Type**: Filter by Full-Time, Contract, or Freelance.
+- **Interview Prep Assistant**: One-click AI generation of role-specific technical questions, company deep-dives, and STAR response outlines.
+- **Apply Kit**: Quick access to saved candidate details, pre-filled answers, and instant CV downloads.
 
-| File                 | What it does                                                   |
-| -------------------- | -------------------------------------------------------------- |
-| `middleware.js`      | Password login for the dashboard and API (HTTP Basic Auth).    |
-| `package.json`       | Dependencies: next, react, googleapis, nodemailer, rss-parser. |
-| `.env.local.example` | Template for every setting. Copy to `.env.local`.              |
+### 4. 🛡️ Admin Command Center (`/admin`)
+- **System Metrics**: Real-time stats on registered users, active jobs, matches generated, and source distribution.
+- **User Management**: Inspect users, adjust roles (`admin` / `user`), and manage subscription status.
+- **Resume Management on Behalf of Users**: Admins can inspect, upload, replace, or delete resumes across all 3 slots for any user.
+- **Per-User Match Re-syncing**: Re-evaluates candidate resumes against all active database positions with clear feedback banners.
+- **Global Web Crawler (`⚡ Run Scraper Now`)**: Asynchronously crawls all 10 sources in the background with live progress polling.
 
-### `config/` (edit these, no code changes)
+### 5. 🔐 Authentication & Security
+- **Better Auth Integration**: Secure session management, email verification via Resend, cookie-based sessions with 24-hour duration.
+- **Role-Based Access Control (RBAC)**: Protected admin endpoints and middleware verification.
+- **Safe Sandboxing**: File uploads validated, strictly isolated, and stored securely.
 
-| File             | What it does                                                                   |
-| ---------------- | ------------------------------------------------------------------------------ |
-| `countries.json` | Countries where mid-level developer pay clears $28K a year.                    |
-| `companies.json` | Company names checked on Greenhouse, Lever, Ashby, BambooHR.                   |
-| `cvMapping.json` | Title and skill keywords that choose between your 3 CVs.                       |
-| `applyKit.json`  | Your details and saved answers for the Apply kit. Replace the `EDIT ME` lines. |
+---
 
-### `app/`
+## Tech Stack
 
-| File                   | What it does                                                    |
-| ---------------------- | --------------------------------------------------------------- |
-| `page.js`              | The dashboard: stats, tabs, Approve, Apply kit, LinkedIn links. |
-| `api/run/route.js`     | The daily pipeline. Protected by `CRON_SECRET`.                 |
-| `api/approve/route.js` | Approve and status changes. Sends email applications.           |
-| `api/jobs/route.js`    | Reads the sheet for the dashboard.                              |
-| `api/kit/route.js`     | Serves `applyKit.json` to the dashboard.                        |
-| `api/resume/route.js`  | Downloads one of the 3 CVs.                                     |
-| `api/clear/route.js`   | Clear all (only works when `ALLOW_CLEAR=true`).                 |
-| `api/format/route.js`  | One-time sheet styling. Run it once.                            |
+- **Framework**: [Next.js 14](https://nextjs.org/) (App Router, React 18, TypeScript)
+- **Database**: [PostgreSQL](https://www.postgresql.org/) via [Drizzle ORM](https://orm.drizzle.team/)
+- **Authentication**: [Better Auth](https://www.better-auth.com/)
+- **AI & LLM**: Google Gemini API (`gemini-2.5-flash`, `text-embedding-004`)
+- **Email Delivery**: [Resend](https://resend.com/) & Nodemailer
+- **Document Processing**: `pdf-parse`
+- **Styling**: Native CSS Variables, Responsive Grid & Flexbox layouts
+- **Deployment**: Docker container on Oracle Cloud VPS with Caddy reverse proxy (HTTPS)
 
-### `lib/`
+---
 
-| File            | What it does                                                   |
-| --------------- | -------------------------------------------------------------- |
-| `sheets.js`     | All Google Sheet reads and writes.                             |
-| `filters.js`    | Country filter, remote check, duplicate removal.               |
-| `scorer.js`     | Match score and CV choice. Word lists at the top are editable. |
-| `emailApply.js` | Finds an application email in a job description.               |
-| `linkedin.js`   | Builds LinkedIn search links per company.                      |
-| `mailer.js`     | Daily digest and follow-up emails.                             |
-| `autoApply.js`  | Sends one application email with the right CV attached.        |
-| `loadJson.js`   | Loads the config files.                                        |
-| `fetchers/`     | One file per job source, plus `index.js` that runs them all.   |
+## Project Structure
 
-### `scripts/`
+```
+job-pipeline/
+├── app/
+│   ├── (auth)/
+│   │   ├── login/              # Sign in and Sign up flows
+│   │   └── verify-email/       # Email verification handling
+│   ├── admin/                  # Admin Command Center & User Management
+│   ├── resumes/                # Multi-resume upload & parsing interface
+│   ├── api/
+│   │   ├── admin/              # Admin metrics, users, resumes, scrape API
+│   │   ├── auth/               # Better Auth handler routes
+│   │   ├── jobs/               # Public and authenticated job queries
+│   │   ├── matches/            # Match scoring, sync & AI interview prep
+│   │   ├── resumes/            # User resume upload & management
+│   │   └── verify-email/       # Resend email verification endpoint
+│   ├── globals.css             # Unified theme, badges, and layout styles
+│   ├── layout.tsx              # Root HTML layout with auth providers
+│   └── page.tsx                # Candidate job matching dashboard
+├── config/
+│   ├── companies.json          # Curated company targets for ATS APIs
+│   ├── countries.json          # Country geographic & pay data
+│   └── cvMapping.json          # Keyword mappings for heuristic fallbacks
+├── lib/
+│   ├── ai/
+│   │   ├── embeddings.ts       # Gemini vector embedding generation
+│   │   └── parseResume.ts      # Gemini AI CV parsing & fallback extractors
+│   ├── db/
+│   │   ├── index.ts            # Drizzle database client
+│   │   └── schema.ts           # PostgreSQL database schema & relations
+│   ├── fetchers/               # Feed scrapers (10 platforms)
+│   │   ├── canada-job-bank.js  # jobbank.gc.ca crawler & RSS fallback
+│   │   ├── greenhouse.js       # Greenhouse board API
+│   │   ├── lever.js            # Lever board API
+│   │   ├── ashby.js            # Ashby board API
+│   │   ├── bamboohr.js         # BambooHR board API
+│   │   ├── himalayas.js        # Himalayas RSS/API
+│   │   ├── seek.js             # Seek crawler
+│   │   ├── remotive.js         # Remotive API
+│   │   ├── weworkremotely.js   # WWR RSS feed
+│   │   └── remoteok.js         # RemoteOK API
+│   ├── jobs/
+│   │   └── ingest.ts           # Global job ingestion & self-healing
+│   ├── matcher/
+│   │   └── matchUserJobs.ts    # Multi-user vector & heuristic matching
+│   ├── auth.ts                 # Better Auth server configuration
+│   ├── auth-client.ts          # Better Auth client hooks
+│   ├── email.ts                # Resend transactional email client
+│   ├── filters.js              # Location & workplace type categorization
+│   └── scorer.js               # Keyword scoring rules
+├── tests/
+│   ├── filters.test.mjs        # Filter & workplace classification tests
+│   └── scorer.test.mjs         # Scorer logic tests
+└── scripts/
+    ├── check-companies.mjs     # ATS company list health checker
+    └── run-pipeline.mjs        # Standalone CLI pipeline runner
+```
 
-| File                  | What it does                                                               |
-| --------------------- | -------------------------------------------------------------------------- |
-| `check-companies.mjs` | Tests every company in `companies.json`, removes dead ones, adds new ones. |
+---
 
-### Other
+## Environment Configuration
 
-`resumes/` holds your 3 CV PDFs. `cron/` holds the scripts that call `/api/run`
-daily. `logs/` holds the daily run log.
-
-## Settings (`.env.local`)
-
-| Setting                                                                                 | What it does                                                               |
-| --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `GOOGLE_SERVICE_ACCOUNT_KEY_PATH`, `GOOGLE_SPREADSHEET_ID`, `GOOGLE_SHEET_TAB`          | Connect to your sheet.                                                     |
-| `SMTP_EMAIL`, `SMTP_APP_PASSWORD`, `SMTP_SERVER`, `SMTP_PORT`, `DIGEST_RECIPIENT_EMAIL` | Sending email. Gmail needs an App Password.                                |
-| `MINIMUM_MATCH_SCORE`                                                                   | Jobs below this never reach the sheet. Default 55.                         |
-| `AUTO_APPROVE_MIN_SCORE`                                                                | Jobs at or above this skip the Approve step. Default 80.                   |
-| `REQUIRE_REMOTE`                                                                        | `true` drops career-page jobs that don't look remote. Default false.       |
-| `AUTO_SEND_EMAILS`                                                                      | `true` sends strong email-apply matches without your click. Default false. |
-| `MAX_EMAILS_PER_RUN`                                                                    | Cap on automatic emails per run. Default 10.                               |
-| `CRON_SECRET`                                                                           | Protects `/api/run`.                                                       |
-| `DASHBOARD_USER`, `DASHBOARD_PASSWORD`                                                  | Switch on the dashboard login.                                             |
-| `ALLOW_CLEAR`                                                                           | Enables Clear all. Keep false on the VPS.                                  |
-
-## Setup on your PC
+Create a `.env.local` file in the root directory based on `.env.local.example`:
 
 ```bash
+# --- Database & Multi-Tenancy ---
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/job_pipeline
+
+# --- Authentication (Better Auth) ---
+# Generate secret with: openssl rand -base64 32
+BETTER_AUTH_SECRET=your-random-32-character-secret-key-here
+BETTER_AUTH_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# --- AI & Vector Embeddings ---
+GEMINI_API_KEY=your-gemini-api-key-here
+
+# --- File Storage ---
+UPLOADS_DIR=./uploads/resumes
+
+# --- Transactional Email (Resend) ---
+RESEND_API_KEY=re_123456789
+EMAIL_FROM="Job Pipeline <onboarding@resend.dev>"
+
+# --- Matching Constraints ---
+MINIMUM_MATCH_SCORE=55
+AUTO_APPROVE_MIN_SCORE=80
+REQUIRE_REMOTE=false
+```
+
+---
+
+## Getting Started
+
+### 1. Prerequisites
+- **Node.js**: v20.x or higher
+- **Package Manager**: `pnpm` (or `npm`)
+- **Database**: PostgreSQL (local or cloud instance)
+
+### 2. Installation
+```bash
+# Clone the repository
+git clone https://github.com/donaina/Job-pipeline.git
+cd Job-pipeline
+
+# Install dependencies
 pnpm install
-cp .env.local.example .env.local     # then fill it in
-pnpm dev                             # open http://localhost:3000
+
+# Copy environment variables
+cp .env.local.example .env.local
+# (Edit .env.local with your database and API credentials)
 ```
 
-Google setup: create a Google Cloud project, enable the Sheets and Drive APIs,
-make a service account, download its JSON key into `credentials/`, create the
-sheet, and share it with the service account's email as Editor. Then run once:
+### 3. Database Migration
+Push the Drizzle schema to your PostgreSQL database:
+```bash
+pnpm db:push
+```
+
+### 4. Run Development Server
+```bash
+pnpm dev
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+## Testing & Build
 
 ```bash
-curl -X POST http://localhost:3000/api/format
-curl -X POST http://localhost:3000/api/run -H "x-cron-secret: YOUR_CRON_SECRET"
+# Run unit test suite
+pnpm test
+
+# Build for production
+pnpm build
+
+# Start production server
+pnpm start
 ```
 
-(If you set a dashboard login, add `-u USER:PASSWORD` to the `format` call.)
+---
 
-Keep the project in a plain folder such as `C:\Users\YOU\job-pipeline`. Do not
-put it in OneDrive: syncing breaks `node_modules`.
+## Production Deployment
 
-## Keeping the company list healthy
+The platform is deployed via Docker and Caddy reverse proxy:
+- **Server**: Oracle Cloud VPS (`132.226.80.40`)
+- **Reverse Proxy**: Caddy with automated SSL/TLS certificates.
+- **Continuous Deployment**: Aeroplane pipeline triggers automatically upon merging pull requests into the `main` branch.
 
-```bash
-node scripts/check-companies.mjs                 # report
-node scripts/check-companies.mjs --fix           # remove dead names
-node scripts/check-companies.mjs --add=greenhouse:dropbox,ashby:retool
-```
+---
 
-Restart `pnpm dev` after changing the list, because the fetchers read it at startup.
+## Contributing & Development Workflow
 
-## Putting it on the VPS
+To maintain code stability and prevent deployment regressions:
+1. **Never push directly to `main`**.
+2. Create a dedicated feature or bugfix branch (`feat/...` or `fix/...`).
+3. Verify that `pnpm test` and `pnpm build` pass cleanly.
+4. Submit a Pull Request targeting `main`.
 
-1. Install Node 20 and pnpm, upload the project, run `pnpm install` and
-   `pnpm build`.
-2. Fill in `.env.local` with Linux paths. Set `ALLOW_CLEAR=false` and set a
-   dashboard login.
-3. Start it with PM2: `pm2 start "pnpm start" --name job-pipeline`, then
-   `pm2 save` and `pm2 startup`.
-4. Fix Windows line endings in the scripts, then install the daily job:
-   `sed -i 's/\r$//' cron/*.sh && chmod +x cron/*.sh && ./cron/setup_cron.sh`.
-5. Block everything except SSH with the firewall and reach the dashboard
-   through an SSH tunnel: `ssh -L 3000:localhost:3000 user@your-vps-ip`.
+---
 
-## Security
+## License
 
-- `.env.local` and `credentials/` must never be committed. Check with
-  `git check-ignore -v .env.local credentials/keys.json`.
-- The dashboard login uses Basic Auth, which is readable on plain `http://`.
-  Use the SSH tunnel or HTTPS.
-- `config/applyKit.json` holds your saved answers. Do not commit a real salary
-  number to a public repo.
-- Rotate the service account key, app password, and `CRON_SECRET` if they are
-  ever pasted somewhere public.
-
-## Known limits
-
-- Only email applications are sent for you. Web forms (most jobs) are
-  submitted by you; the Apply kit makes that faster.
-- Scoring is a keyword-based first pass. Read the posting before applying.
-- Country matching is text based and can miss unusual wording. Extend
-  `SYNONYMS` in `lib/filters.js` when it does.
-- Salaries are not read from postings, so the sheet shows "Not listed".
-- Email detection can pick the wrong address. Check the address on the
-  dashboard card before approving.
-- LinkedIn and Indeed are not sources: neither offers individual API access.
-
-## Next steps
-
-1. Watch a few real runs and tune the word lists in `lib/scorer.js` and
-   `MINIMUM_MATCH_SCORE`.
-2. Run `check-companies.mjs` every month and add companies from your target list.
-3. Deploy to the VPS (section above).
-4. Build the LinkedIn alert-email reader.
-5. Build an assisted-apply script if submitting forms takes too long.
-6. More sources: NaukriGulf for UAE and Qatar, StepStone for Germany.
-7. Revisit `config/countries.json` every few months. Salaries change.
+Private and proprietary. All rights reserved.
