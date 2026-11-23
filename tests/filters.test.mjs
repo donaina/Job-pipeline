@@ -7,6 +7,7 @@ import {
   filterJobs,
   deduplicate,
   detectWorkplaceType,
+  detectVisaSponsorship,
 } from "../lib/filters.js";
 
 test("countries on your list are accepted, abbreviations included", () => {
@@ -139,4 +140,75 @@ test("detectWorkplaceType classifies remote, hybrid, and onsite correctly", () =
     "remote"
   );
 });
+
+test("detectVisaSponsorship identifies LMIA, GTS, and sponsorship signals accurately", () => {
+  // 1. Explicit tags
+  assert.equal(
+    detectVisaSponsorship({ title: "Software Engineer", tags: ["Canada Visa Sponsorship", "LMIA"] }),
+    true
+  );
+
+  // 2. Job Bank TFW link
+  assert.equal(
+    detectVisaSponsorship({
+      source: "jobbank",
+      title: "Full Stack Developer",
+      link: "https://www.jobbank.gc.ca/jobsearch/jobpostingtfw/50080344",
+      tags: ["Job Bank", "On-site"],
+    }),
+    true
+  );
+
+  // 3. Positive description signals
+  assert.equal(
+    detectVisaSponsorship({
+      title: "Backend Engineer",
+      description: "We offer full visa sponsorship and relocation support for qualified international candidates to Toronto.",
+    }),
+    true
+  );
+
+  assert.equal(
+    detectVisaSponsorship({
+      title: "Senior Developer",
+      description: "This role is eligible for Canada Global Talent Stream fast-track processing.",
+    }),
+    true
+  );
+
+  assert.equal(
+    detectVisaSponsorship({
+      title: "Staff Engineer",
+      description: "Employer has an approved LMIA for this position.",
+    }),
+    true
+  );
+
+  // 4. Negative exclusions (declining sponsorship should NOT trigger)
+  assert.equal(
+    detectVisaSponsorship({
+      title: "Frontend Developer",
+      description: "We cannot sponsor visas or provide relocation assistance at this time. Must have valid Canadian work authorization without sponsorship.",
+    }),
+    false
+  );
+
+  assert.equal(
+    detectVisaSponsorship({
+      title: "DevOps Engineer",
+      description: "Candidates must be authorized to work in Canada without visa sponsorship.",
+    }),
+    false
+  );
+
+  // 5. Normal job with no mention of sponsorship
+  assert.equal(
+    detectVisaSponsorship({
+      title: "Data Analyst",
+      description: "Looking for an analyst proficient in SQL, Python, and Tableau for our Vancouver team.",
+    }),
+    false
+  );
+});
+
 

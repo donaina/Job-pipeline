@@ -1,5 +1,5 @@
 import { fetchAllJobs } from "../fetchers/index.js";
-import { filterJobs, detectWorkplaceType } from "../filters.js";
+import { filterJobs, detectWorkplaceType, detectVisaSponsorship } from "../filters.js";
 import { db } from "../db";
 import { jobs } from "../db/schema";
 import { generateEmbedding } from "../ai/embeddings";
@@ -29,23 +29,63 @@ export async function ingestGlobalJobs() {
         .digest("hex");
 
       const workplaceType = detectWorkplaceType(job);
+      const isSponsorship = detectVisaSponsorship(job);
 
       // Check if job already exists
       const existing = await db
-        .select({ id: jobs.id })
+        .select({ id: jobs.id, remoteType: jobs.remoteType, tags: jobs.tags })
         .from(jobs)
         .where(eq(jobs.externalId, externalId))
         .limit(1);
 
       if (existing.length > 0) {
+        const existingJob = existing[0];
+        let needsUpdate = false;
+        const updatePayload: Record<string, any> = {};
+
         // Self-heal workplace arrangement if previously default
-        if (workplaceType !== "remote") {
-          await db
-            .update(jobs)
-            .set({ remoteType: workplaceType })
-            .where(eq(jobs.id, existing[0].id));
+        if (workplaceType !== "remote" && existingJob.remoteType !== workplaceType) {
+          updatePayload.remoteType = workplaceType;
+          needsUpdate = true;
+        }
+
+        // Self-heal visa sponsorship tags
+        const currentTags: string[] = existingJob.tags || [];
+        if (isSponsorship && !currentTags.some((t) => /sponsorship|lmia/i.test(t))) {
+          const newTags = [...currentTags, "Canada Visa Sponsorship"];
+          if (
+            (job.tags?.includes("LMIA") || /lmia/i.test(`${job.title} ${job.description}`)) &&
+            !newTags.includes("LMIA")
+          ) {
+            newTags.push("LMIA");
+          }
+          updatePayload.tags = newTags;
+          needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+          await db.update(jobs).set(updatePayload).where(eq(jobs.id, existingJob.id));
         }
         continue;
+      }
+
+      const tags = [
+        ...(job.tags || []),
+        workplaceType === "remote"
+          ? (job.locationRestricted ? "Region-Specific Remote" : "Worldwide Remote")
+          : workplaceType === "hybrid"
+          ? "Hybrid"
+          : "On-site",
+      ];
+
+      if (isSponsorship && !tags.some((t) => /sponsorship/i.test(t))) {
+        tags.push("Canada Visa Sponsorship");
+        if (
+          (job.tags?.includes("LMIA") || /lmia/i.test(`${job.title} ${job.description}`)) &&
+          !tags.includes("LMIA")
+        ) {
+          tags.push("LMIA");
+        }
       }
 
       await db.insert(jobs).values({
@@ -59,14 +99,7 @@ export async function ingestGlobalJobs() {
         salaryEst: job.salary || null,
         applyUrl: link,
         applyEmail: job.applyEmail || null,
-        tags: [
-          ...(job.tags || []),
-          workplaceType === "remote"
-            ? (job.locationRestricted ? "Region-Specific Remote" : "Worldwide Remote")
-            : workplaceType === "hybrid"
-            ? "Hybrid"
-            : "On-site",
-        ],
+        tags,
         embedding: null,
       });
 
