@@ -180,6 +180,13 @@ function matchJobType(job: JobMatch["job"], type: string): boolean {
       return isWorldwideJob;
     case "region_remote":
       return isRegionJob;
+    case "canada_visa":
+      return Boolean(
+        job.tags?.some((t) => /visa sponsorship|lmia|global talent stream/i.test(t)) ||
+        /visa sponsorship|willing to sponsor|lmia|global talent stream|relocation (assistance|support|package) to canada/i.test(
+          titleAndDesc
+        )
+      );
     case "full_time":
       return isFullTime;
     case "contract":
@@ -562,6 +569,8 @@ export default function Dashboard() {
         return "Worldwide Remote";
       case "region_remote":
         return "Region-Specific Remote";
+      case "canada_visa":
+        return "🍁 Canada Visa / LMIA";
       case "full_time":
         return "Full-Time";
       case "contract":
@@ -963,6 +972,9 @@ export default function Dashboard() {
                 <option value="worldwide_remote">🌐 Worldwide Remote</option>
                 <option value="region_remote">📍 Region-Specific Remote</option>
               </optgroup>
+              <optgroup label="Immigration & Sponsorship">
+                <option value="canada_visa">🍁 Canada Visa Sponsorship / LMIA</option>
+              </optgroup>
               <optgroup label="Employment Type">
                 <option value="full_time">⏱️ Full-Time</option>
                 <option value="contract">📑 Contract / Freelance</option>
@@ -1108,6 +1120,11 @@ export default function Dashboard() {
             const isContract = /(contract|freelance|contractor|temp)/i.test(
               `${job.title} ${job.description || ""}`
             );
+            const isSponsorship =
+              job.tags?.some((t) => /visa sponsorship|lmia/i.test(t)) ||
+              /visa sponsorship|willing to sponsor|lmia|global talent stream/i.test(
+                `${job.title} ${job.description || ""}`
+              );
             return (
               <div key={match.id} className="jobRow">
                 <div className="jobMain">
@@ -1201,6 +1218,24 @@ export default function Dashboard() {
                         }}
                       >
                         📑 Contract
+                      </span>
+                    )}
+                    {isSponsorship && (
+                      <span
+                        style={{
+                          fontSize: 11.5,
+                          padding: "2px 8px",
+                          borderRadius: 4,
+                          background: "#fef2f2",
+                          color: "#b91c1c",
+                          border: "1px solid #fecaca",
+                          fontWeight: 600,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 3,
+                        }}
+                      >
+                        🍁 Canada Visa / LMIA
                       </span>
                     )}
                     {job.salaryEst && (
@@ -1355,6 +1390,28 @@ export default function Dashboard() {
                       ? "🏛️ On-site"
                       : "🌍 Remote"}
                   </span>
+                  {((selectedMatch.job.tags &&
+                    selectedMatch.job.tags.some((t) => /visa sponsorship|lmia/i.test(t))) ||
+                    /visa sponsorship|willing to sponsor|lmia|global talent stream/i.test(
+                      `${selectedMatch.job.title} ${selectedMatch.job.description || ""}`
+                    )) && (
+                    <>
+                      <span>&bull;</span>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: "1px 6px",
+                          borderRadius: 4,
+                          background: "#fef2f2",
+                          color: "#b91c1c",
+                          border: "1px solid #fecaca",
+                        }}
+                      >
+                        🍁 Canada Visa / LMIA
+                      </span>
+                    </>
+                  )}
                   <span>&bull;</span>
                   <span>
                     Matched CV: <strong>{selectedMatch.bestResume?.label || "General CV"}</strong>
